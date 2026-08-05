@@ -20,6 +20,7 @@ prueba-capacitor-backend/.env
 prueba-capacitor-backend/uploads/
 **/__pycache__/
 *.pyc
+*.sql
 
 # Editor directories and files
 .vscode/*
