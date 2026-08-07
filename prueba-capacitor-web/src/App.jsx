@@ -117,7 +117,7 @@ function App() {
           >
             <Box
               component="img"
-              src="/logo.png"
+              src={`${import.meta.env.BASE_URL}logo.png`}
               alt="ISP"
               sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
               onError={(e) => {
