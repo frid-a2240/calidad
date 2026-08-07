@@ -88,28 +88,31 @@ function App() {
       {/* HEADER */}
       <Box
         sx={{
-          bgcolor: 'primary.main',
+          background: 'linear-gradient(135deg, #0d3b66 0%, #0a2f52 100%)',
           color: 'white',
-          px: 3,
+          px: { xs: 2, sm: 3 },
           py: 2,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          boxShadow: '0 2px 12px rgba(13, 59, 102, 0.2)',
+          boxShadow: '0 4px 20px -4px rgba(6, 32, 64, 0.45)',
+          position: 'relative',
+          zIndex: 1,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75 }}>
           <Box
             sx={{
-              width: 40,
-              height: 40,
-              borderRadius: 1.5,
+              width: 42,
+              height: 42,
+              borderRadius: 2,
               bgcolor: 'white',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               overflow: 'hidden',
-              p: 0.5,
+              p: 0.6,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
             }}
           >
             <Box
@@ -123,20 +126,32 @@ function App() {
             />
           </Box>
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.15 }}>
               Control de Calidad
             </Typography>
-            <Typography variant="caption" sx={{ opacity: 0.85 }}>
+            <Typography variant="caption" sx={{ opacity: 0.75 }}>
               Reportes de todos los proyectos
             </Typography>
           </Box>
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+          <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+            <Typography variant="body2" sx={{ fontWeight: 650, lineHeight: 1.2 }}>
+              {usuario.nombre}
+            </Typography>
+            <Typography variant="caption" sx={{ opacity: 0.7 }}>
+              No. control {usuario.numero_control}
+            </Typography>
+          </Box>
           <IconButton
             size="small"
             onClick={(e) => setMenuAnchor(e.currentTarget)}
-            sx={{ p: 0.25 }}
+            sx={{
+              p: 0.3,
+              border: '2px solid rgba(255,255,255,0.25)',
+              '&:hover': { border: '2px solid rgba(255,255,255,0.5)' },
+            }}
           >
             <Avatar
               sx={{
@@ -159,6 +174,7 @@ function App() {
             anchorEl={menuAnchor}
             open={Boolean(menuAnchor)}
             onClose={() => setMenuAnchor(null)}
+            slotProps={{ paper: { sx: { borderRadius: 2.5, minWidth: 220 } } }}
           >
             <MenuItem disabled sx={{ opacity: '1 !important' }}>
               <ListItemText
@@ -178,7 +194,16 @@ function App() {
       </Box>
 
       {/* TABS DE MODULOS */}
-      <Box sx={{ bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}>
+      <Box
+        sx={{
+          bgcolor: 'background.paper',
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          position: 'sticky',
+          top: 0,
+          zIndex: 2,
+        }}
+      >
         <Container maxWidth="lg">
           <Tabs value={modulo} onChange={(e, valor) => setModulo(valor)}>
             <Tab label="Reportes" value="reportes" />
@@ -188,15 +213,14 @@ function App() {
       </Box>
 
       {/* CONTENIDO */}
-      <Container maxWidth="lg" sx={{ py: 3 }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 2.5, sm: 3.5 } }}>
         {modulo === 'reportes' ? (
           <PantallaReportes usuario={usuario} />
         ) : (
           <PantallaFpyRwk />
         )}
 
-        <Divider sx={{ mt: 4 }} />
-        <Box sx={{ textAlign: 'center', pt: 1.5, pb: 2 }}>
+        <Box sx={{ textAlign: 'center', pt: 4, pb: 1 }}>
           <Typography variant="caption" color="text.secondary">
             Control de Calidad · v{APP_VERSION}
           </Typography>

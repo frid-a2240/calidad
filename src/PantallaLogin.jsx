@@ -112,6 +112,8 @@ export default function PantallaLogin({ onLoginExitoso }) {
               <TextField
                 label="Usuario"
                 placeholder="Número de control"
+                name="username"
+                autoComplete="username"
                 value={numeroControl}
                 onChange={(e) => setNumeroControl(e.target.value)}
                 fullWidth
@@ -132,6 +134,8 @@ export default function PantallaLogin({ onLoginExitoso }) {
               <TextField
                 label="Contraseña"
                 type={mostrarPassword ? 'text' : 'password'}
+                name="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 fullWidth

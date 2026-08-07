@@ -25,7 +25,7 @@ export const theme = createTheme({
       main: '#e6a817',
     },
     background: {
-      default: '#f4f6f9',    // Gris muy claro de fondo
+      default: '#f4f6f9',    
       paper: '#ffffff',
     },
     text: {

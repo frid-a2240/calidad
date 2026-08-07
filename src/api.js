@@ -10,17 +10,21 @@ export const api = axios.create({
   timeout: 30000,
 })
 
+
 export function guardarToken(token) {
   localStorage.setItem(TOKEN_KEY, token)
 }
+
 
 export function obtenerToken() {
   return localStorage.getItem(TOKEN_KEY)
 }
 
+
 export function borrarToken() {
   localStorage.removeItem(TOKEN_KEY)
 }
+
 
 api.interceptors.request.use((config) => {
   const token = obtenerToken()
@@ -29,6 +33,7 @@ api.interceptors.request.use((config) => {
   }
   return config
 })
+
 
 api.interceptors.response.use(
   (response) => response,
@@ -40,7 +45,7 @@ api.interceptors.response.use(
       status: error.response?.status,
       data: error.response?.data,
     }
-    console.error('API Error:', info)
+    console.error('API Error: ' + JSON.stringify(info))
     error.debugInfo = info
     const url = error.config?.url || ''
     const esAuthLogicaDeNegocio =
@@ -51,6 +56,7 @@ api.interceptors.response.use(
     return Promise.reject(error)
   }
 )
+
 
 function dataUrlToBlob(dataUrl) {
   const arr = dataUrl.split(',')
@@ -64,23 +70,24 @@ function dataUrlToBlob(dataUrl) {
   return new Blob([u8arr], { type: mime })
 }
 
+
 export async function listarProcesos() {
   const response = await api.get('/catalogos/procesos')
   return response.data
 }
+
 
 export async function listarProyectos() {
   const response = await api.get('/catalogos/proyectos')
   return response.data
 }
 
+
 export async function ocultarProyecto(nombre) {
   await api.delete('/catalogos/proyectos', { params: { nombre } })
 }
 
-/**
- * fotosDataUrl: string[] (una o más fotos en base64)
- */
+
 export async function crearReporte({ proyecto, procesoId, comentario, fotosDataUrl }) {
   const formData = new FormData()
   formData.append('proyecto', proyecto)
@@ -104,9 +111,11 @@ export async function listarReportes() {
   return response.data
 }
 
+
 export async function eliminarReporte(reporteId) {
   await api.delete(`/reportes/${reporteId}`)
 }
+
 
 export async function checkConexion() {
   try {
@@ -123,6 +132,7 @@ export async function checkConexion() {
   }
 }
 
+
 export async function login({ numeroControl, password }) {
   const response = await api.post('/auth/login', {
     numero_control: numeroControl,
@@ -131,10 +141,12 @@ export async function login({ numeroControl, password }) {
   return response.data
 }
 
+
 export async function obtenerPerfil() {
   const response = await api.get('/auth/me')
   return response.data
 }
+
 
 export async function cambiarPassword({ passwordActual, passwordNueva }) {
   const response = await api.post('/auth/cambiar-password', {
@@ -144,11 +156,7 @@ export async function cambiarPassword({ passwordActual, passwordNueva }) {
   return response.data
 }
 
-/**
- * Convierte el foto_ruta del backend a URL completa para <img>.
- * El backend guarda ruta relativa tipo "uploads\\20260707_140427_c695d090.png"
- * La convertimos a "http://IP:8000/uploads/20260707_140427_c695d090.png"
- */
+
 export function urlFoto(fotoNombre) {
   return `${API_URL}/uploads/${fotoNombre}`
 }

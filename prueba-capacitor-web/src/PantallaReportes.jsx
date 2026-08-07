@@ -35,6 +35,9 @@ import {
   Close as CloseIcon,
   PhotoLibrary as PhotoLibraryIcon,
   DeleteOutlined as DeleteOutlineIcon,
+  FilterAltOutlined as FilterAltOutlinedIcon,
+  AssignmentOutlined as AssignmentOutlinedIcon,
+  FactCheckOutlined as FactCheckOutlinedIcon,
 } from '@mui/icons-material'
 import { useCallback, useEffect, useState } from 'react'
 import {
@@ -172,15 +175,45 @@ export default function PantallaReportes({ usuario }) {
 
   return (
     <Stack spacing={2.5}>
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+        <Box
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: 2.5,
+            bgcolor: 'primary.main',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <AssignmentOutlinedIcon />
+        </Box>
+        <Box>
+          <Typography variant="h6" sx={{ lineHeight: 1.15 }}>
+            Reportes
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {reportes.length} {reportes.length === 1 ? 'reporte encontrado' : 'reportes encontrados'}
+            {hayFiltrosActivos && ' · filtros activos'}
+          </Typography>
+        </Box>
+      </Stack>
+
       <Card>
         <CardContent sx={{ p: 2.5 }}>
-          <Typography
-            variant="overline"
-            color="text.secondary"
-            sx={{ fontWeight: 600, letterSpacing: 0.5 }}
-          >
-            Filtros
-          </Typography>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
+            <FilterAltOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+            <Typography
+              variant="overline"
+              color="text.secondary"
+              sx={{ fontWeight: 700, letterSpacing: 0.5 }}
+            >
+              Filtros
+            </Typography>
+          </Stack>
           <Box component="form" onSubmit={buscar} sx={{ mt: 1 }}>
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ flexWrap: 'wrap' }}>
               <Autocomplete
@@ -312,13 +345,15 @@ export default function PantallaReportes({ usuario }) {
         </CardContent>
       </Card>
 
-      <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
-          {reportes.length} {reportes.length === 1 ? 'reporte' : 'reportes'}
-        </Typography>
-        <IconButton size="small" onClick={() => cargarReportes(filtrosAplicados)} disabled={cargando}>
-          <RefreshIcon fontSize="small" />
-        </IconButton>
+      <Stack direction="row" sx={{ justifyContent: 'flex-end', alignItems: 'center' }}>
+        <Button
+          size="small"
+          startIcon={<RefreshIcon fontSize="small" />}
+          onClick={() => cargarReportes(filtrosAplicados)}
+          disabled={cargando}
+        >
+          Actualizar
+        </Button>
       </Stack>
 
       {error && <Alert severity="error">{error}</Alert>}
@@ -329,7 +364,8 @@ export default function PantallaReportes({ usuario }) {
         </Box>
       ) : reportes.length === 0 ? (
         <Card>
-          <CardContent sx={{ textAlign: 'center', py: 6 }}>
+          <CardContent sx={{ textAlign: 'center', py: 7 }}>
+            <FactCheckOutlinedIcon sx={{ fontSize: 44, color: 'text.disabled', mb: 1 }} />
             <Typography variant="body1" color="text.secondary">
               No hay reportes con estos filtros
             </Typography>
@@ -337,7 +373,12 @@ export default function PantallaReportes({ usuario }) {
         </Card>
       ) : (
         <TableContainer component={Paper} variant="outlined">
-          <Table size="small">
+          <Table
+            size="small"
+            sx={{
+              '& tbody tr:nth-of-type(odd)': { bgcolor: 'rgba(13, 59, 102, 0.015)' },
+            }}
+          >
             <TableHead>
               <TableRow>
                 <TableCell>Proyecto</TableCell>

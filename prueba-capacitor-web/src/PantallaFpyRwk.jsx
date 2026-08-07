@@ -33,6 +33,9 @@ import {
   Close as CloseIcon,
   Edit as EditIcon,
   DeleteOutlined as DeleteOutlineIcon,
+  AddCircleOutlineOutlined as AddCircleOutlineIcon,
+  EngineeringOutlined as EngineeringOutlinedIcon,
+  QueryStatsOutlined as QueryStatsOutlinedIcon,
 } from '@mui/icons-material'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import {
@@ -401,16 +404,50 @@ export default function PantallaFpyRwk() {
 
   return (
     <Stack spacing={2.5}>
-      <Card>
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+        <Box
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: 2.5,
+            bgcolor: 'secondary.main',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <QueryStatsOutlinedIcon />
+        </Box>
+        <Box>
+          <Typography variant="h6" sx={{ lineHeight: 1.15 }}>
+            Calidad FPY / RWK
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {registros.length} {registros.length === 1 ? 'registro capturado' : 'registros capturados'}
+          </Typography>
+        </Box>
+      </Stack>
+
+      <Card
+        sx={{
+          borderTop: '3px solid',
+          borderColor: editandoId ? 'warning.main' : 'secondary.main',
+        }}
+      >
         <CardContent sx={{ p: 2.5 }}>
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography
-              variant="overline"
-              color="text.secondary"
-              sx={{ fontWeight: 600, letterSpacing: 0.5 }}
-            >
-              {editandoId ? `Editando registro #${editandoId}` : 'Nuevo registro'}
-            </Typography>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+              <AddCircleOutlineIcon sx={{ fontSize: 18, color: editandoId ? 'warning.main' : 'secondary.main' }} />
+              <Typography
+                variant="overline"
+                color="text.secondary"
+                sx={{ fontWeight: 700, letterSpacing: 0.5 }}
+              >
+                {editandoId ? `Editando registro #${editandoId}` : 'Nuevo registro'}
+              </Typography>
+            </Stack>
             {editandoId && (
               <Button size="small" onClick={reiniciarFormulario}>
                 Cancelar edición
@@ -547,24 +584,37 @@ export default function PantallaFpyRwk() {
         const pctRwk = calculado[`${etapa.id}_pct_rwk`]
         const pctFpy = calculado[`${etapa.id}_pct_fpy`]
         return (
-          <Card key={etapa.id}>
+          <Card
+            key={etapa.id}
+            sx={{ borderLeft: '4px solid', borderColor: etapa.color.bgHeader }}
+          >
             <CardContent sx={{ p: 2.5 }}>
-              <Typography
-                variant="overline"
-                color="text.secondary"
-                sx={{ fontWeight: 600, letterSpacing: 0.5 }}
-              >
-                {etapa.titulo}
-              </Typography>
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <EngineeringOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                <Typography
+                  variant="overline"
+                  color="text.secondary"
+                  sx={{ fontWeight: 700, letterSpacing: 0.5 }}
+                >
+                  {etapa.titulo}
+                </Typography>
+              </Stack>
 
-              <Stack spacing={1.5} sx={{ mt: 1.5 }}>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+                  gap: 1.5,
+                  mt: 1.5,
+                }}
+              >
                 {etapa.defectos.map(({ campo, label }) => {
                   const pctCampo = calculado[`${campo}_pct`]
                   return (
                     <Stack
                       key={campo}
                       direction="row"
-                      spacing={2}
+                      spacing={1.5}
                       sx={{ alignItems: 'center' }}
                     >
                       <TextField
@@ -583,12 +633,12 @@ export default function PantallaFpyRwk() {
                         color={
                           pctCampo === null ? 'default' : pctCampo >= META_FPY ? 'success' : 'error'
                         }
-                        sx={{ minWidth: 72 }}
+                        sx={{ minWidth: 64, flexShrink: 0 }}
                       />
                     </Stack>
                   )
                 })}
-              </Stack>
+              </Box>
 
               <Divider sx={{ my: 2 }} />
 
@@ -639,12 +689,6 @@ export default function PantallaFpyRwk() {
 
       <Divider sx={{ mt: 1 }} />
 
-      <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
-          {registros.length} {registros.length === 1 ? 'registro' : 'registros'}
-        </Typography>
-      </Stack>
-
       {error && <Alert severity="error">{error}</Alert>}
 
       {cargando && registros.length === 0 ? (
@@ -653,7 +697,8 @@ export default function PantallaFpyRwk() {
         </Box>
       ) : registros.length === 0 ? (
         <Card>
-          <CardContent sx={{ textAlign: 'center', py: 6 }}>
+          <CardContent sx={{ textAlign: 'center', py: 7 }}>
+            <QueryStatsOutlinedIcon sx={{ fontSize: 44, color: 'text.disabled', mb: 1 }} />
             <Typography variant="body1" color="text.secondary">
               Aún no hay registros de calidad FPY/RWK
             </Typography>
