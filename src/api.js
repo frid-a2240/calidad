@@ -160,3 +160,47 @@ export async function cambiarPassword({ passwordActual, passwordNueva }) {
 export function urlFoto(fotoNombre) {
   return `${API_URL}/uploads/${fotoNombre}`
 }
+
+
+/**
+ * FastAPI manda `detail` como string en errores de negocio (403, 404, etc.)
+ * pero como un arreglo de objetos {type, loc, msg, ...} en errores 422 de
+ * validación. Esta función normaliza ambos casos a un string mostrable.
+ */
+export function extraerMensajeError(err, fallback) {
+  const detail = err?.response?.data?.detail
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        const campo = Array.isArray(item?.loc) ? item.loc.at(-1) : null
+        return campo ? `${campo}: ${item.msg}` : item?.msg
+      })
+      .filter(Boolean)
+      .join('; ') || fallback
+  }
+  return fallback
+}
+
+
+export async function crearRegistroFpyRwk(datos) {
+  const response = await api.post('/fpy-rwk/', datos)
+  return response.data
+}
+
+
+export async function actualizarRegistroFpyRwk(id, datos) {
+  const response = await api.put(`/fpy-rwk/${id}`, datos)
+  return response.data
+}
+
+
+export async function listarRegistrosFpyRwk() {
+  const response = await api.get('/fpy-rwk/')
+  return response.data
+}
+
+
+export async function eliminarRegistroFpyRwk(id) {
+  await api.delete(`/fpy-rwk/${id}`)
+}

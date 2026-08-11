@@ -70,6 +70,7 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
     try {
       const image = await Camera.getPhoto({
         quality: 80,
+        width: 1600,
         allowEditing: false,
         resultType: CameraResultType.DataUrl,
         source: CameraSource.Camera,

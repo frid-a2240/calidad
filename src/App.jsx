@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import {
   Container,
   Typography,
@@ -21,13 +21,27 @@ import {
   Wifi as WifiIcon,
   AddCircleOutlineOutlined as AddIcon,
   History as HistoryIcon,
+  QueryStatsOutlined as QueryStatsIcon,
   Logout as LogoutIcon,
 } from '@mui/icons-material'
 import { checkConexion, obtenerToken, borrarToken, obtenerPerfil } from './api'
 import PantallaLogin from './PantallaLogin'
-import PantallaCambiarPassword from './PantallaCambiarPassword'
 import PantallaReportar from './PantallaReportar'
-import PantallaHistorial from './PantallaHistorial'
+
+// Pantallas que no se necesitan en el primer render: se cargan solo
+// cuando el usuario realmente entra a ellas, para que el arranque
+// inicial de la app tenga menos JS que parsear.
+const PantallaCambiarPassword = lazy(() => import('./PantallaCambiarPassword'))
+const PantallaHistorial = lazy(() => import('./PantallaHistorial'))
+const PantallaFpyRwk = lazy(() => import('./PantallaFpyRwk'))
+
+function CargandoPantalla() {
+  return (
+    <Box sx={{ textAlign: 'center', py: 6 }}>
+      <CircularProgress size={28} />
+    </Box>
+  )
+}
 
 const APP_VERSION = '0.3.0'
 
@@ -35,7 +49,7 @@ function App() {
   const [usuario, setUsuarioSesion] = useState(null)
   const [verificandoSesion, setVerificandoSesion] = useState(true)
   const [conectado, setConectado] = useState(true)
-  const [vista, setVista] = useState('reportar') // 'reportar' | 'historial'
+  const [vista, setVista] = useState('reportar') // 'reportar' | 'historial' | 'calidad'
   const [refreshHistorial, setRefreshHistorial] = useState(0)
   const [menuAnchor, setMenuAnchor] = useState(null)
 
@@ -101,10 +115,12 @@ function App() {
 
   if (usuario.debe_cambiar_password) {
     return (
-      <PantallaCambiarPassword
-        usuario={usuario}
-        onPasswordCambiada={setUsuarioSesion}
-      />
+      <Suspense fallback={<CargandoPantalla />}>
+        <PantallaCambiarPassword
+          usuario={usuario}
+          onPasswordCambiada={setUsuarioSesion}
+        />
+      </Suspense>
     )
   }
 
@@ -152,7 +168,11 @@ function App() {
               Control de Calidad
             </Typography>
             <Typography variant="caption" sx={{ opacity: 0.85 }}>
-              {vista === 'reportar' ? 'Nuevo reporte' : 'Historial de reportes'}
+              {vista === 'reportar'
+                ? 'Nuevo reporte'
+                : vista === 'historial'
+                  ? 'Historial de reportes'
+                  : 'Calidad FPY / RWK'}
             </Typography>
           </Box>
         </Box>
@@ -229,8 +249,14 @@ function App() {
             conectado={conectado}
             onReporteEnviado={handleReporteEnviado}
           />
+        ) : vista === 'historial' ? (
+          <Suspense fallback={<CargandoPantalla />}>
+            <PantallaHistorial refreshTrigger={refreshHistorial} usuario={usuario} />
+          </Suspense>
         ) : (
-          <PantallaHistorial refreshTrigger={refreshHistorial} usuario={usuario} />
+          <Suspense fallback={<CargandoPantalla />}>
+            <PantallaFpyRwk usuario={usuario} />
+          </Suspense>
         )}
 
         {/* Footer */}
@@ -275,6 +301,11 @@ function App() {
             label="Historial"
             value="historial"
             icon={<HistoryIcon />}
+          />
+          <BottomNavigationAction
+            label="Calidad"
+            value="calidad"
+            icon={<QueryStatsIcon />}
           />
         </BottomNavigation>
       </Paper>
