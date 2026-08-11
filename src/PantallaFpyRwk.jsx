@@ -26,6 +26,9 @@ import {
   TableRow,
   TableCell,
   TableContainer,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material'
 import {
   Save as SaveIcon,
@@ -34,6 +37,7 @@ import {
   DeleteOutlined as DeleteOutlineIcon,
   EngineeringOutlined as EngineeringOutlinedIcon,
   Refresh as RefreshIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
@@ -320,6 +324,7 @@ export default function PantallaFpyRwk({ usuario }) {
   const [registros, setRegistros] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
+  const [listaAbierta, setListaAbierta] = useState(false)
   const [registroAbierto, setRegistroAbierto] = useState(null)
   const [registroAEliminar, setRegistroAEliminar] = useState(null)
   const [eliminando, setEliminando] = useState(false)
@@ -704,52 +709,76 @@ export default function PantallaFpyRwk({ usuario }) {
 
       <Divider sx={{ mt: 1 }} />
 
-      <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
-          {registros.length} {registros.length === 1 ? 'registro' : 'registros'}
-        </Typography>
-        <IconButton size="small" onClick={cargarRegistros} disabled={cargando}>
-          <RefreshIcon fontSize="small" />
-        </IconButton>
+      <Stack direction="row" sx={{ justifyContent: 'flex-end' }}>
+        <Button
+          size="small"
+          startIcon={<RefreshIcon fontSize="small" />}
+          onClick={cargarRegistros}
+          disabled={cargando}
+        >
+          Actualizar
+        </Button>
       </Stack>
 
-      {error && <Alert severity="error">{error}</Alert>}
+      <Accordion
+        expanded={listaAbierta}
+        onChange={(e, abierta) => setListaAbierta(abierta)}
+        disableGutters
+        elevation={0}
+        sx={{
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 2.5,
+          overflow: 'hidden',
+          '&:before': { display: 'none' },
+        }}
+        slotProps={{ transition: { unmountOnExit: true } }}
+      >
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography sx={{ fontWeight: 600 }}>
+            {registros.length} {registros.length === 1 ? 'registro' : 'registros'}
+          </Typography>
+        </AccordionSummary>
+        <AccordionDetails sx={{ pt: 0 }}>
+          {error && (
+            <Alert severity="error" sx={{ mb: 1.5 }}>
+              {error}
+            </Alert>
+          )}
 
-      {cargando && registros.length === 0 ? (
-        <Box sx={{ textAlign: 'center', py: 6 }}>
-          <CircularProgress />
-        </Box>
-      ) : registros.length === 0 ? (
-        <Card>
-          <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <Typography variant="body1" color="text.secondary">
+          {cargando && registros.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 6 }}>
+              <CircularProgress />
+            </Box>
+          ) : registros.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
               Aún no hay registros de calidad FPY/RWK
             </Typography>
-          </CardContent>
-        </Card>
-      ) : (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
-            gap: 1.5,
-          }}
-        >
-          {registros.map((registro) => (
-            <TarjetaRegistro
-              key={registro.id}
-              registro={registro}
-              esPropio={registro.capturado_por.id === usuario?.id}
-              onAbrir={setRegistroAbierto}
-              onEditar={editar}
-              onEliminar={(r) => {
-                setErrorEliminar(null)
-                setRegistroAEliminar(r)
+          ) : (
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+                gap: 1.5,
               }}
-            />
-          ))}
-        </Box>
-      )}
+            >
+              {registros.map((registro) => (
+                <TarjetaRegistro
+                  key={registro.id}
+                  registro={registro}
+                  esPropio={registro.capturado_por.id === usuario?.id}
+                  onAbrir={setRegistroAbierto}
+                  onEditar={editar}
+                  onEliminar={(r) => {
+                    setErrorEliminar(null)
+                    setRegistroAEliminar(r)
+                  }}
+                />
+              ))}
+            </Box>
+          )}
+        </AccordionDetails>
+      </Accordion>
 
       {promediosPorFecha.length > 0 && (
         <>
