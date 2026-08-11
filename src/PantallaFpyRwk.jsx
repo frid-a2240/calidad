@@ -484,7 +484,14 @@ export default function PantallaFpyRwk({ usuario }) {
             )}
           </Stack>
 
-          <Stack spacing={2} sx={{ mt: 1.5 }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+              gap: 2,
+              mt: 1.5,
+            }}
+          >
             <TextField
               label="Nombre del trabajador"
               fullWidth
@@ -592,7 +599,7 @@ export default function PantallaFpyRwk({ usuario }) {
               onChange={(e) => actualizarCampo('supervisor', e.target.value)}
               disabled={guardando}
             />
-          </Stack>
+          </Box>
         </CardContent>
       </Card>
 
@@ -613,7 +620,14 @@ export default function PantallaFpyRwk({ usuario }) {
                 </Typography>
               </Stack>
 
-              <Stack spacing={1.5} sx={{ mt: 1.5 }}>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+                  gap: 1.5,
+                  mt: 1.5,
+                }}
+              >
                 {etapa.defectos.map(({ campo, label }) => {
                   const pctCampo = calculado[`${campo}_pct`]
                   return (
@@ -639,7 +653,7 @@ export default function PantallaFpyRwk({ usuario }) {
                     </Stack>
                   )
                 })}
-              </Stack>
+              </Box>
 
               <Divider sx={{ my: 2 }} />
 
@@ -714,7 +728,13 @@ export default function PantallaFpyRwk({ usuario }) {
           </CardContent>
         </Card>
       ) : (
-        <Stack spacing={1.5}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+            gap: 1.5,
+          }}
+        >
           {registros.map((registro) => (
             <TarjetaRegistro
               key={registro.id}
@@ -728,7 +748,7 @@ export default function PantallaFpyRwk({ usuario }) {
               }}
             />
           ))}
-        </Stack>
+        </Box>
       )}
 
       {promediosPorFecha.length > 0 && (

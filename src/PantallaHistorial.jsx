@@ -157,6 +157,13 @@ export default function PantallaHistorial({ refreshTrigger, usuario }) {
           </IconButton>
         </Box>
 
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+            gap: 2,
+          }}
+        >
         {reportes.map((reporte) => {
           const colores = coloresAvatar(reporte.inspector.nombre)
           const esPropio = reporte.inspector.id === usuario?.id
@@ -250,6 +257,7 @@ export default function PantallaHistorial({ refreshTrigger, usuario }) {
             </Card>
           )
         })}
+        </Box>
       </Stack>
 
       <Dialog

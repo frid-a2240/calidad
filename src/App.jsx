@@ -243,7 +243,7 @@ function App() {
       </Box>
 
       {/* CONTENIDO */}
-      <Container maxWidth="sm" sx={{ pt: 3 }}>
+      <Container maxWidth="md" sx={{ pt: 3 }}>
         {vista === 'reportar' ? (
           <PantallaReportar
             conectado={conectado}

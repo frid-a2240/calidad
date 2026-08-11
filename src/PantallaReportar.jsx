@@ -152,13 +152,14 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
           >
             Datos del reporte
           </Typography>
-          <Stack spacing={2} sx={{ mt: 1 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1 }}>
             <Autocomplete
               freeSolo
               options={proyectos}
               value={proyecto}
               onInputChange={(e, valorNuevo) => setProyecto(valorNuevo)}
               disabled={enviando}
+              sx={{ flex: 1 }}
               renderOption={(props, option) => {
                 const { key, ...optionProps } = props
                 return (
@@ -198,7 +199,7 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
                 />
               )}
             />
-            <FormControl fullWidth size="small">
+            <FormControl fullWidth size="small" sx={{ flex: 1 }}>
               <InputLabel id="proceso-label">Proceso</InputLabel>
               <Select
                 labelId="proceso-label"
