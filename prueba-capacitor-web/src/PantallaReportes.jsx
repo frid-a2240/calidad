@@ -53,6 +53,7 @@ import {
 
 const FILTROS_VACIOS = {
   proyecto: '',
+  idTrabajo: '',
   procesoId: '',
   inspectorId: '',
   fechaDesde: '',
@@ -258,6 +259,16 @@ export default function PantallaReportes({ usuario }) {
                 )}
               />
 
+              <TextField
+                label="ID de trabajo"
+                size="small"
+                sx={{ minWidth: 160 }}
+                value={filtros.idTrabajo}
+                onChange={(e) =>
+                  setFiltros((prev) => ({ ...prev, idTrabajo: e.target.value }))
+                }
+              />
+
               <FormControl size="small" sx={{ minWidth: 200 }}>
                 <InputLabel id="filtro-proceso-label">Proceso</InputLabel>
                 <Select
@@ -382,6 +393,7 @@ export default function PantallaReportes({ usuario }) {
             <TableHead>
               <TableRow>
                 <TableCell>Proyecto</TableCell>
+                <TableCell>ID</TableCell>
                 <TableCell>Proceso</TableCell>
                 <TableCell>Inspector</TableCell>
                 <TableCell>Fecha</TableCell>
@@ -402,6 +414,7 @@ export default function PantallaReportes({ usuario }) {
                     sx={{ cursor: 'pointer' }}
                   >
                     <TableCell sx={{ fontWeight: 600 }}>{reporte.proyecto}</TableCell>
+                    <TableCell>{reporte.id_trabajo || '—'}</TableCell>
                     <TableCell>{reporte.proceso.nombre}</TableCell>
                     <TableCell>
                       <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
@@ -503,6 +516,9 @@ export default function PantallaReportes({ usuario }) {
             </DialogTitle>
             <DialogContent dividers>
               <Stack spacing={0.5} sx={{ mb: 2 }}>
+                <Typography variant="body2">
+                  <strong>ID de trabajo:</strong> {reporteAbierto.id_trabajo || '—'}
+                </Typography>
                 <Typography variant="body2">
                   <strong>Inspector:</strong> {reporteAbierto.inspector.nombre}
                 </Typography>

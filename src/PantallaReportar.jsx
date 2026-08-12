@@ -37,6 +37,7 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
   const [errorCatalogos, setErrorCatalogos] = useState(null)
 
   const [proyecto, setProyecto] = useState('')
+  const [idTrabajo, setIdTrabajo] = useState('')
   const [procesoId, setProcesoId] = useState('')
   const [fotos, setFotos] = useState([])
   const [comentario, setComentario] = useState('')
@@ -98,7 +99,11 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
   }
 
   const puedeEnviar =
-    proyecto.trim().length > 0 && procesoId && fotos.length > 0 && conectado
+    proyecto.trim().length > 0 &&
+    idTrabajo.trim().length > 0 &&
+    procesoId &&
+    fotos.length > 0 &&
+    conectado
 
   const enviar = async () => {
     if (!puedeEnviar) return
@@ -107,6 +112,7 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
     try {
       const resultado = await crearReporte({
         proyecto: proyecto.trim(),
+        idTrabajo: idTrabajo.trim(),
         procesoId,
         comentario,
         fotosDataUrl: fotos,
@@ -116,6 +122,7 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
         prev.includes(resultado.proyecto) ? prev : [resultado.proyecto, ...prev]
       )
       setProyecto('')
+      setIdTrabajo('')
       setProcesoId('')
       setFotos([])
       setComentario('')
@@ -152,14 +159,13 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
           >
             Datos del reporte
           </Typography>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1 }}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
             <Autocomplete
               freeSolo
               options={proyectos}
               value={proyecto}
               onInputChange={(e, valorNuevo) => setProyecto(valorNuevo)}
               disabled={enviando}
-              sx={{ flex: 1 }}
               renderOption={(props, option) => {
                 const { key, ...optionProps } = props
                 return (
@@ -199,7 +205,15 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
                 />
               )}
             />
-            <FormControl fullWidth size="small" sx={{ flex: 1 }}>
+            <TextField
+              label="ID de trabajo"
+              value={idTrabajo}
+              onChange={(e) => setIdTrabajo(e.target.value)}
+              disabled={enviando}
+              fullWidth
+              size="small"
+            />
+            <FormControl fullWidth size="small">
               <InputLabel id="proceso-label">Proceso</InputLabel>
               <Select
                 labelId="proceso-label"

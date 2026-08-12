@@ -80,6 +80,10 @@ async def crear_reporte(
     if not proyecto:
         raise HTTPException(status_code=400, detail="El proyecto es obligatorio")
 
+    id_trabajo = str(form.get("id_trabajo", "")).strip()
+    if not id_trabajo:
+        raise HTTPException(status_code=400, detail="El ID de trabajo es obligatorio")
+
     try:
         proceso_id = int(form["proceso_id"])
     except (KeyError, ValueError):
@@ -101,6 +105,7 @@ async def crear_reporte(
 
     nuevo = ReporteCabecera(
         proyecto=proyecto,
+        id_trabajo=id_trabajo,
         proceso_id=proceso.id,
         inspector_id=usuario_actual.id,
         comentario=comentario,
@@ -130,6 +135,7 @@ def listar_reportes(
     db: Session = Depends(get_db),
     usuario_actual: Usuario = Depends(get_current_user),
     proyecto: Optional[str] = Query(None),
+    id_trabajo: Optional[str] = Query(None),
     proceso_id: Optional[int] = Query(None),
     inspector_id: Optional[int] = Query(None),
     fecha_desde: Optional[date] = Query(None),
@@ -144,6 +150,8 @@ def listar_reportes(
 
     if proyecto:
         consulta = consulta.filter(ReporteCabecera.proyecto.ilike(f"%{proyecto}%"))
+    if id_trabajo:
+        consulta = consulta.filter(ReporteCabecera.id_trabajo.ilike(f"%{id_trabajo}%"))
     if proceso_id:
         consulta = consulta.filter(ReporteCabecera.proceso_id == proceso_id)
     if inspector_id:

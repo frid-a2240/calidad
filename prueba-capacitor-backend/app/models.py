@@ -52,6 +52,7 @@ class ReporteCabecera(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     proyecto = Column(String(200), nullable=False)
+    id_trabajo = Column(String(100), nullable=True, index=True)
     proceso_id = Column(Integer, ForeignKey("procesos.id"), nullable=False, index=True)
     inspector_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False, index=True)
     comentario = Column(Text, nullable=True)

@@ -56,6 +56,7 @@ class FotoOut(BaseModel):
 class ReporteOut(BaseModel):
     id: int
     proyecto: str
+    id_trabajo: Optional[str] = None
     proceso: ProcesoOut
     inspector: UsuarioOut
     comentario: Optional[str] = None

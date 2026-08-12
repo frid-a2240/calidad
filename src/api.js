@@ -88,9 +88,10 @@ export async function ocultarProyecto(nombre) {
 }
 
 
-export async function crearReporte({ proyecto, procesoId, comentario, fotosDataUrl }) {
+export async function crearReporte({ proyecto, idTrabajo, procesoId, comentario, fotosDataUrl }) {
   const formData = new FormData()
   formData.append('proyecto', proyecto)
+  formData.append('id_trabajo', idTrabajo)
   formData.append('proceso_id', procesoId)
   formData.append('comentario', comentario || '')
 

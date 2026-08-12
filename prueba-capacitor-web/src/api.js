@@ -93,11 +93,12 @@ export async function listarInspectores() {
 }
 
 /**
- * filtros: { proyecto, procesoId, inspectorId, fechaDesde, fechaHasta, q }
+ * filtros: { proyecto, idTrabajo, procesoId, inspectorId, fechaDesde, fechaHasta, q }
  */
 export async function listarReportes(filtros = {}) {
   const params = {}
   if (filtros.proyecto) params.proyecto = filtros.proyecto
+  if (filtros.idTrabajo) params.id_trabajo = filtros.idTrabajo
   if (filtros.procesoId) params.proceso_id = filtros.procesoId
   if (filtros.inspectorId) params.inspector_id = filtros.inspectorId
   if (filtros.fechaDesde) params.fecha_desde = filtros.fechaDesde

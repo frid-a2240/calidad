@@ -436,12 +436,16 @@ export default function PantallaFpyRwk({ usuario }) {
 
       setMensaje({
         tipo: 'success',
-        texto: editandoId ? 'Registro actualizado' : 'Registro guardado',
+        texto: editandoId
+          ? 'Registro actualizado — puedes seguir con la siguiente etapa'
+          : 'Registro guardado — puedes seguir con la siguiente etapa, o toca "Nuevo registro" para capturar otro',
       })
       setProyectos((prev) =>
         prev.includes(resultado.proyecto) ? prev : [resultado.proyecto, ...prev]
       )
-      reiniciarFormulario()
+      // No se reinicia el formulario: se queda editando este mismo registro
+      // para poder ir llenando las demas etapas en pasos separados.
+      setEditandoId(resultado.id)
       cargarRegistros()
     } catch (err) {
       setMensaje({
@@ -484,7 +488,7 @@ export default function PantallaFpyRwk({ usuario }) {
             </Typography>
             {editandoId && (
               <Button size="small" onClick={reiniciarFormulario}>
-                Cancelar
+                Nuevo registro
               </Button>
             )}
           </Stack>
