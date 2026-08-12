@@ -38,15 +38,19 @@ import {
   FilterAltOutlined as FilterAltOutlinedIcon,
   AssignmentOutlined as AssignmentOutlinedIcon,
   FactCheckOutlined as FactCheckOutlinedIcon,
+  FolderOutlined as FolderOutlinedIcon,
+  ArrowBackOutlined as ArrowBackOutlinedIcon,
 } from '@mui/icons-material'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   listarReportes,
   listarProcesos,
   listarProyectos,
+  listarIdsTrabajo,
   listarInspectores,
   eliminarReporte,
   ocultarProyecto,
+  ocultarIdTrabajo,
   urlFoto,
   extraerMensajeError,
 } from './api'
@@ -54,11 +58,58 @@ import {
 const FILTROS_VACIOS = {
   proyecto: '',
   idTrabajo: '',
+  sinIdTrabajo: false,
   procesoId: '',
   inspectorId: '',
   fechaDesde: '',
   fechaHasta: '',
   q: '',
+}
+
+const CLAVE_SIN_ID = '__sin_id__'
+
+function agruparPorIdTrabajo(reportes) {
+  const grupos = new Map()
+  const sinId = []
+
+  for (const r of reportes) {
+    if (!r.id_trabajo) {
+      sinId.push(r)
+      continue
+    }
+    if (!grupos.has(r.id_trabajo)) grupos.set(r.id_trabajo, [])
+    grupos.get(r.id_trabajo).push(r)
+  }
+
+  const masReciente = (items) =>
+    items.reduce((a, b) => (a.fecha_creacion > b.fecha_creacion ? a : b))
+
+  const carpetas = Array.from(grupos.entries()).map(([idTrabajo, items]) => {
+    const ultimo = masReciente(items)
+    return {
+      clave: idTrabajo,
+      idTrabajo,
+      proyecto: ultimo.proyecto,
+      total: items.length,
+      fechaUltima: ultimo.fecha_creacion,
+      sinId: false,
+    }
+  })
+  carpetas.sort((a, b) => (a.fechaUltima < b.fechaUltima ? 1 : -1))
+
+  if (sinId.length > 0) {
+    const ultimo = masReciente(sinId)
+    carpetas.push({
+      clave: CLAVE_SIN_ID,
+      idTrabajo: null,
+      proyecto: null,
+      total: sinId.length,
+      fechaUltima: ultimo.fecha_creacion,
+      sinId: true,
+    })
+  }
+
+  return carpetas
 }
 
 function coloresAvatar(nombre) {
@@ -80,8 +131,10 @@ function coloresAvatar(nombre) {
 export default function PantallaReportes({ usuario }) {
   const [procesos, setProcesos] = useState([])
   const [proyectosSugeridos, setProyectosSugeridos] = useState([])
+  const [idsTrabajoSugeridos, setIdsTrabajoSugeridos] = useState([])
   const [inspectores, setInspectores] = useState([])
 
+  const [vista, setVista] = useState('carpetas') // 'carpetas' | 'tabla'
   const [filtros, setFiltros] = useState(FILTROS_VACIOS)
   const [filtrosAplicados, setFiltrosAplicados] = useState(FILTROS_VACIOS)
 
@@ -98,13 +151,16 @@ export default function PantallaReportes({ usuario }) {
   useEffect(() => {
     const cargarCatalogos = async () => {
       try {
-        const [datosProcesos, datosProyectos, datosInspectores] = await Promise.all([
-          listarProcesos(),
-          listarProyectos(),
-          listarInspectores(),
-        ])
+        const [datosProcesos, datosProyectos, datosIdsTrabajo, datosInspectores] =
+          await Promise.all([
+            listarProcesos(),
+            listarProyectos(),
+            listarIdsTrabajo(),
+            listarInspectores(),
+          ])
         setProcesos(datosProcesos)
         setProyectosSugeridos(datosProyectos)
+        setIdsTrabajoSugeridos(datosIdsTrabajo)
         setInspectores(datosInspectores)
       } catch {
         // los catálogos son solo para los selects de filtro; si fallan,
@@ -134,15 +190,38 @@ export default function PantallaReportes({ usuario }) {
     iniciar()
   }, [cargarReportes])
 
+  const carpetas = useMemo(() => agruparPorIdTrabajo(reportes), [reportes])
+
   const buscar = (e) => {
     e?.preventDefault()
     setFiltrosAplicados(filtros)
+    setVista('tabla')
     cargarReportes(filtros)
   }
 
   const limpiarFiltros = () => {
     setFiltros(FILTROS_VACIOS)
     setFiltrosAplicados(FILTROS_VACIOS)
+    setVista('tabla')
+    cargarReportes(FILTROS_VACIOS)
+  }
+
+  const abrirCarpeta = (carpeta) => {
+    const nuevosFiltros = {
+      ...FILTROS_VACIOS,
+      idTrabajo: carpeta.sinId ? '' : carpeta.idTrabajo,
+      sinIdTrabajo: carpeta.sinId,
+    }
+    setFiltros(nuevosFiltros)
+    setFiltrosAplicados(nuevosFiltros)
+    setVista('tabla')
+    cargarReportes(nuevosFiltros)
+  }
+
+  const volverACarpetas = () => {
+    setFiltros(FILTROS_VACIOS)
+    setFiltrosAplicados(FILTROS_VACIOS)
+    setVista('carpetas')
     cargarReportes(FILTROS_VACIOS)
   }
 
@@ -155,6 +234,16 @@ export default function PantallaReportes({ usuario }) {
       await ocultarProyecto(nombre)
     } catch {
       setProyectosSugeridos((prev) => (prev.includes(nombre) ? prev : [...prev, nombre]))
+    }
+  }
+
+  const borrarSugerenciaIdTrabajo = async (id, e) => {
+    e.stopPropagation()
+    setIdsTrabajoSugeridos((prev) => prev.filter((i) => i !== id))
+    try {
+      await ocultarIdTrabajo(id)
+    } catch {
+      setIdsTrabajoSugeridos((prev) => (prev.includes(id) ? prev : [...prev, id]))
     }
   }
 
@@ -197,8 +286,10 @@ export default function PantallaReportes({ usuario }) {
             Reportes
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {reportes.length} {reportes.length === 1 ? 'reporte encontrado' : 'reportes encontrados'}
-            {hayFiltrosActivos && ' · filtros activos'}
+            {vista === 'carpetas'
+              ? `${carpetas.length} ${carpetas.length === 1 ? 'carpeta' : 'carpetas'} por ID de trabajo`
+              : `${reportes.length} ${reportes.length === 1 ? 'reporte encontrado' : 'reportes encontrados'}`}
+            {vista === 'tabla' && hayFiltrosActivos && ' · filtros activos'}
           </Typography>
         </Box>
       </Stack>
@@ -259,14 +350,46 @@ export default function PantallaReportes({ usuario }) {
                 )}
               />
 
-              <TextField
-                label="ID de trabajo"
-                size="small"
-                sx={{ minWidth: 160 }}
+              <Autocomplete
+                freeSolo
+                options={idsTrabajoSugeridos}
                 value={filtros.idTrabajo}
-                onChange={(e) =>
-                  setFiltros((prev) => ({ ...prev, idTrabajo: e.target.value }))
+                onInputChange={(e, valorNuevo) =>
+                  setFiltros((prev) => ({ ...prev, idTrabajo: valorNuevo, sinIdTrabajo: false }))
                 }
+                sx={{ minWidth: 160 }}
+                renderOption={(props, option) => {
+                  const { key, ...optionProps } = props
+                  return (
+                    <Box
+                      key={key}
+                      component="li"
+                      {...optionProps}
+                      sx={{
+                        display: 'flex !important',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {option}
+                      </Box>
+                      <IconButton
+                        size="small"
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                        }}
+                        onClick={(e) => borrarSugerenciaIdTrabajo(option, e)}
+                      >
+                        <CloseIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Box>
+                  )
+                }}
+                renderInput={(params) => (
+                  <TextField {...params} label="ID de trabajo" size="small" />
+                )}
               />
 
               <FormControl size="small" sx={{ minWidth: 200 }}>
@@ -356,11 +479,26 @@ export default function PantallaReportes({ usuario }) {
         </CardContent>
       </Card>
 
-      <Stack direction="row" sx={{ justifyContent: 'flex-end', alignItems: 'center' }}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: vista === 'tabla' ? 'space-between' : 'flex-end',
+          alignItems: 'center',
+        }}
+      >
+        {vista === 'tabla' && (
+          <Button
+            size="small"
+            startIcon={<ArrowBackOutlinedIcon fontSize="small" />}
+            onClick={volverACarpetas}
+          >
+            Volver a carpetas
+          </Button>
+        )}
         <Button
           size="small"
           startIcon={<RefreshIcon fontSize="small" />}
-          onClick={() => cargarReportes(filtrosAplicados)}
+          onClick={() => cargarReportes(vista === 'carpetas' ? FILTROS_VACIOS : filtrosAplicados)}
           disabled={cargando}
         >
           Actualizar
@@ -369,7 +507,71 @@ export default function PantallaReportes({ usuario }) {
 
       {error && <Alert severity="error">{error}</Alert>}
 
-      {cargando && reportes.length === 0 ? (
+      {vista === 'carpetas' ? (
+        cargando && reportes.length === 0 ? (
+          <Box sx={{ textAlign: 'center', py: 6 }}>
+            <CircularProgress />
+          </Box>
+        ) : carpetas.length === 0 ? (
+          <Card>
+            <CardContent sx={{ textAlign: 'center', py: 7 }}>
+              <FactCheckOutlinedIcon sx={{ fontSize: 44, color: 'text.disabled', mb: 1 }} />
+              <Typography variant="body1" color="text.secondary">
+                Aún no hay reportes capturados
+              </Typography>
+            </CardContent>
+          </Card>
+        ) : (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, 1fr)',
+                md: 'repeat(3, 1fr)',
+              },
+              gap: 2,
+            }}
+          >
+            {carpetas.map((carpeta) => (
+              <Card
+                key={carpeta.clave}
+                onClick={() => abrirCarpeta(carpeta)}
+                sx={{ cursor: 'pointer' }}
+              >
+                <CardContent
+                  sx={{ p: 2.5, display: 'flex', alignItems: 'center', gap: 1.5 }}
+                >
+                  <Box
+                    sx={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 2,
+                      bgcolor: carpeta.sinId ? 'action.disabledBackground' : 'secondary.main',
+                      color: carpeta.sinId ? 'text.secondary' : 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <FolderOutlinedIcon />
+                  </Box>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: 700 }} noWrap>
+                      {carpeta.sinId ? 'Sin ID' : carpeta.idTrabajo}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" noWrap>
+                      {carpeta.proyecto ? `${carpeta.proyecto} · ` : ''}
+                      {carpeta.total} {carpeta.total === 1 ? 'reporte' : 'reportes'}
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        )
+      ) : cargando && reportes.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6 }}>
           <CircularProgress />
         </Box>

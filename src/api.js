@@ -88,6 +88,17 @@ export async function ocultarProyecto(nombre) {
 }
 
 
+export async function listarIdsTrabajo() {
+  const response = await api.get('/catalogos/ids-trabajo')
+  return response.data
+}
+
+
+export async function ocultarIdTrabajo(idTrabajo) {
+  await api.delete('/catalogos/ids-trabajo', { params: { id_trabajo: idTrabajo } })
+}
+
+
 export async function crearReporte({ proyecto, idTrabajo, procesoId, comentario, fotosDataUrl }) {
   const formData = new FormData()
   formData.append('proyecto', proyecto)

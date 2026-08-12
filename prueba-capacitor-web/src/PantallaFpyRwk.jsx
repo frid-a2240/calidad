@@ -45,6 +45,8 @@ import {
   eliminarRegistroFpyRwk,
   listarProyectos,
   ocultarProyecto,
+  listarIdsTrabajo,
+  ocultarIdTrabajo,
   extraerMensajeError,
 } from './api'
 import {
@@ -249,6 +251,7 @@ function TablaPromedioPorFecha({ titulo, etiquetaColumna, datos, sufijo, meta, m
 
 export default function PantallaFpyRwk() {
   const [proyectos, setProyectos] = useState([])
+  const [idsTrabajo, setIdsTrabajo] = useState([])
   const [form, setForm] = useState(formularioVacio)
   const [editandoId, setEditandoId] = useState(null)
   const [guardando, setGuardando] = useState(false)
@@ -264,6 +267,9 @@ export default function PantallaFpyRwk() {
   useEffect(() => {
     listarProyectos()
       .then(setProyectos)
+      .catch(() => {})
+    listarIdsTrabajo()
+      .then(setIdsTrabajo)
       .catch(() => {})
   }, [])
 
@@ -298,6 +304,16 @@ export default function PantallaFpyRwk() {
       await ocultarProyecto(nombre)
     } catch {
       setProyectos((prev) => (prev.includes(nombre) ? prev : [...prev, nombre]))
+    }
+  }
+
+  const borrarSugerenciaIdTrabajo = async (id, e) => {
+    e.stopPropagation()
+    setIdsTrabajo((prev) => prev.filter((i) => i !== id))
+    try {
+      await ocultarIdTrabajo(id)
+    } catch {
+      setIdsTrabajo((prev) => (prev.includes(id) ? prev : [...prev, id]))
     }
   }
 
@@ -528,13 +544,45 @@ export default function PantallaFpyRwk() {
               }}
               renderInput={(params) => <TextField {...params} label="Proyecto" size="small" />}
             />
-            <TextField
-              label="ID de trabajo"
-              size="small"
-              sx={{ minWidth: 160 }}
+            <Autocomplete
+              freeSolo
+              options={idsTrabajo}
               value={form.id_trabajo}
-              onChange={(e) => actualizarCampo('id_trabajo', e.target.value)}
+              onInputChange={(e, valor) => actualizarCampo('id_trabajo', valor || '')}
+              sx={{ minWidth: 160 }}
               disabled={guardando}
+              renderOption={(props, option) => {
+                const { key, ...optionProps } = props
+                return (
+                  <Box
+                    key={key}
+                    component="li"
+                    {...optionProps}
+                    sx={{
+                      display: 'flex !important',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {option}
+                    </Box>
+                    <IconButton
+                      size="small"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                      }}
+                      onClick={(e) => borrarSugerenciaIdTrabajo(option, e)}
+                    >
+                      <CloseIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Box>
+                )
+              }}
+              renderInput={(params) => (
+                <TextField {...params} label="ID de trabajo" size="small" />
+              )}
             />
             <TextField
               label="Tipo de trabajo"

@@ -38,6 +38,16 @@ class ProyectoOculto(Base):
     )
 
 
+class IdTrabajoOculto(Base):
+    __tablename__ = "ids_trabajo_ocultos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    id_trabajo = Column(String(100), unique=True, nullable=False, index=True)
+    fecha_creacion = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class Proceso(Base):
     __tablename__ = "procesos"
 

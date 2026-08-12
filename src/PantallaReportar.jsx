@@ -28,11 +28,14 @@ import {
   listarProcesos,
   listarProyectos,
   ocultarProyecto,
+  listarIdsTrabajo,
+  ocultarIdTrabajo,
 } from './api'
 
 export default function PantallaReportar({ conectado, onReporteEnviado }) {
   const [procesos, setProcesos] = useState([])
   const [proyectos, setProyectos] = useState([])
+  const [idsTrabajo, setIdsTrabajo] = useState([])
   const [cargandoCatalogos, setCargandoCatalogos] = useState(true)
   const [errorCatalogos, setErrorCatalogos] = useState(null)
 
@@ -50,12 +53,14 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
       setCargandoCatalogos(true)
       setErrorCatalogos(null)
       try {
-        const [datosProcesos, datosProyectos] = await Promise.all([
+        const [datosProcesos, datosProyectos, datosIdsTrabajo] = await Promise.all([
           listarProcesos(),
           listarProyectos(),
+          listarIdsTrabajo(),
         ])
         setProcesos(datosProcesos)
         setProyectos(datosProyectos)
+        setIdsTrabajo(datosIdsTrabajo)
       } catch (err) {
         setErrorCatalogos(
           err.response?.data?.detail || 'No se pudo cargar el catálogo de procesos'
@@ -95,6 +100,16 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
       await ocultarProyecto(nombre)
     } catch {
       setProyectos((prev) => (prev.includes(nombre) ? prev : [...prev, nombre]))
+    }
+  }
+
+  const borrarSugerenciaIdTrabajo = async (id, e) => {
+    e.stopPropagation()
+    setIdsTrabajo((prev) => prev.filter((i) => i !== id))
+    try {
+      await ocultarIdTrabajo(id)
+    } catch {
+      setIdsTrabajo((prev) => (prev.includes(id) ? prev : [...prev, id]))
     }
   }
 
@@ -205,13 +220,44 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
                 />
               )}
             />
-            <TextField
-              label="ID de trabajo"
+            <Autocomplete
+              freeSolo
+              options={idsTrabajo}
               value={idTrabajo}
-              onChange={(e) => setIdTrabajo(e.target.value)}
+              onInputChange={(e, valorNuevo) => setIdTrabajo(valorNuevo)}
               disabled={enviando}
-              fullWidth
-              size="small"
+              renderOption={(props, option) => {
+                const { key, ...optionProps } = props
+                return (
+                  <Box
+                    key={key}
+                    component="li"
+                    {...optionProps}
+                    sx={{
+                      display: 'flex !important',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {option}
+                    </Box>
+                    <IconButton
+                      size="small"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                      }}
+                      onClick={(e) => borrarSugerenciaIdTrabajo(option, e)}
+                    >
+                      <CloseIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Box>
+                )
+              }}
+              renderInput={(params) => (
+                <TextField {...params} label="ID de trabajo" fullWidth size="small" />
+              )}
             />
             <FormControl fullWidth size="small">
               <InputLabel id="proceso-label">Proceso</InputLabel>

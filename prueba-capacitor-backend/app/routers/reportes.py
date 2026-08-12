@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import Proceso, ProyectoOculto, ReporteCabecera, ReporteFoto, Usuario
+from app.models import IdTrabajoOculto, Proceso, ProyectoOculto, ReporteCabecera, ReporteFoto, Usuario
 from app.schemas import ReporteOut
 
 router = APIRouter(prefix="/reportes", tags=["reportes"])
@@ -114,6 +114,7 @@ async def crear_reporte(
     db.flush()
 
     db.query(ProyectoOculto).filter(ProyectoOculto.nombre == proyecto).delete()
+    db.query(IdTrabajoOculto).filter(IdTrabajoOculto.id_trabajo == id_trabajo).delete()
 
     for archivo in archivos:
         foto_ruta, foto_nombre = await _guardar_foto(archivo)
@@ -136,6 +137,7 @@ def listar_reportes(
     usuario_actual: Usuario = Depends(get_current_user),
     proyecto: Optional[str] = Query(None),
     id_trabajo: Optional[str] = Query(None),
+    sin_id_trabajo: Optional[bool] = Query(None),
     proceso_id: Optional[int] = Query(None),
     inspector_id: Optional[int] = Query(None),
     fecha_desde: Optional[date] = Query(None),
@@ -150,7 +152,9 @@ def listar_reportes(
 
     if proyecto:
         consulta = consulta.filter(ReporteCabecera.proyecto.ilike(f"%{proyecto}%"))
-    if id_trabajo:
+    if sin_id_trabajo:
+        consulta = consulta.filter(ReporteCabecera.id_trabajo.is_(None))
+    elif id_trabajo:
         consulta = consulta.filter(ReporteCabecera.id_trabajo.ilike(f"%{id_trabajo}%"))
     if proceso_id:
         consulta = consulta.filter(ReporteCabecera.proceso_id == proceso_id)

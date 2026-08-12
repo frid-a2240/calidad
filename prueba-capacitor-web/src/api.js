@@ -87,18 +87,31 @@ export async function ocultarProyecto(nombre) {
   await api.delete('/catalogos/proyectos', { params: { nombre } })
 }
 
+export async function listarIdsTrabajo() {
+  const response = await api.get('/catalogos/ids-trabajo')
+  return response.data
+}
+
+export async function ocultarIdTrabajo(idTrabajo) {
+  await api.delete('/catalogos/ids-trabajo', { params: { id_trabajo: idTrabajo } })
+}
+
 export async function listarInspectores() {
   const response = await api.get('/catalogos/inspectores')
   return response.data
 }
 
 /**
- * filtros: { proyecto, idTrabajo, procesoId, inspectorId, fechaDesde, fechaHasta, q }
+ * filtros: { proyecto, idTrabajo, sinIdTrabajo, procesoId, inspectorId, fechaDesde, fechaHasta, q }
  */
 export async function listarReportes(filtros = {}) {
   const params = {}
   if (filtros.proyecto) params.proyecto = filtros.proyecto
-  if (filtros.idTrabajo) params.id_trabajo = filtros.idTrabajo
+  if (filtros.sinIdTrabajo) {
+    params.sin_id_trabajo = true
+  } else if (filtros.idTrabajo) {
+    params.id_trabajo = filtros.idTrabajo
+  }
   if (filtros.procesoId) params.proceso_id = filtros.procesoId
   if (filtros.inspectorId) params.inspector_id = filtros.inspectorId
   if (filtros.fechaDesde) params.fecha_desde = filtros.fechaDesde
