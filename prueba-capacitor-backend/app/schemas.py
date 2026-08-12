@@ -57,6 +57,11 @@ class AsignarIdTrabajoRequest(BaseModel):
     id_trabajo: str = Field(..., min_length=1, max_length=100)
 
 
+class EditarIdTrabajoRequest(BaseModel):
+    id_trabajo_actual: str = Field(..., min_length=1, max_length=100)
+    id_trabajo_nuevo: str = Field(..., min_length=1, max_length=100)
+
+
 class AsignarLocacionRequest(BaseModel):
     locacion: str = Field(..., min_length=1, max_length=100)
 

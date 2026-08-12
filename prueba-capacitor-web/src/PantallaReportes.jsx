@@ -40,6 +40,7 @@ import {
   FactCheckOutlined as FactCheckOutlinedIcon,
   FolderOutlined as FolderOutlinedIcon,
   ArrowBackOutlined as ArrowBackOutlinedIcon,
+  EditOutlined as EditOutlinedIcon,
 } from '@mui/icons-material'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
@@ -52,6 +53,7 @@ import {
   eliminarReporte,
   asignarIdTrabajo,
   asignarLocacion,
+  editarIdTrabajo,
   ocultarProyecto,
   ocultarIdTrabajo,
   ocultarLocacion,
@@ -166,6 +168,11 @@ export default function PantallaReportes({ usuario }) {
   const [valorLocacionNuevo, setValorLocacionNuevo] = useState('')
   const [asignandoLocacion, setAsignandoLocacion] = useState(false)
   const [errorAsignarLocacion, setErrorAsignarLocacion] = useState(null)
+
+  const [idParaEditar, setIdParaEditar] = useState(null)
+  const [valorIdEditado, setValorIdEditado] = useState('')
+  const [editandoId, setEditandoId] = useState(false)
+  const [errorEditarId, setErrorEditarId] = useState(null)
 
   useEffect(() => {
     const cargarCatalogos = async () => {
@@ -344,6 +351,50 @@ export default function PantallaReportes({ usuario }) {
     }
   }
 
+  const abrirEditarId = (idActual, e) => {
+    e?.stopPropagation()
+    setErrorEditarId(null)
+    setValorIdEditado(idActual)
+    setIdParaEditar(idActual)
+  }
+
+  const confirmarEditarId = async () => {
+    if (!idParaEditar) return
+    const idNuevo = valorIdEditado.trim()
+    if (!idNuevo) {
+      setErrorEditarId('Escribe un ID de trabajo')
+      return
+    }
+    if (idNuevo === idParaEditar) {
+      setErrorEditarId('El nuevo ID debe ser distinto al actual')
+      return
+    }
+    setEditandoId(true)
+    setErrorEditarId(null)
+    try {
+      await editarIdTrabajo(idParaEditar, idNuevo)
+      setReportes((prev) =>
+        prev.map((r) => (r.id_trabajo === idParaEditar ? { ...r, id_trabajo: idNuevo } : r))
+      )
+      setReporteAbierto((prev) =>
+        prev && prev.id_trabajo === idParaEditar ? { ...prev, id_trabajo: idNuevo } : prev
+      )
+      setIdsTrabajoSugeridos((prev) => {
+        const sinViejo = prev.filter((i) => i !== idParaEditar)
+        return sinViejo.includes(idNuevo) ? sinViejo : [idNuevo, ...sinViejo]
+      })
+      if (filtrosAplicados.idTrabajo === idParaEditar) {
+        setFiltros((prev) => ({ ...prev, idTrabajo: idNuevo }))
+        setFiltrosAplicados((prev) => ({ ...prev, idTrabajo: idNuevo }))
+      }
+      setIdParaEditar(null)
+    } catch (err) {
+      setErrorEditarId(extraerMensajeError(err, 'No se pudo editar el ID de trabajo'))
+    } finally {
+      setEditandoId(false)
+    }
+  }
+
   const confirmarEliminar = async () => {
     if (!reporteAEliminar) return
     setEliminando(true)
@@ -382,12 +433,26 @@ export default function PantallaReportes({ usuario }) {
           <Typography variant="h6" sx={{ lineHeight: 1.15 }}>
             Reportes
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {vista === 'carpetas'
-              ? `${carpetas.length} ${carpetas.length === 1 ? 'carpeta' : 'carpetas'} por locación`
-              : `${reportes.length} ${reportes.length === 1 ? 'reporte encontrado' : 'reportes encontrados'}`}
-            {vista === 'tabla' && idTrabajoDeVista && ` · ID ${idTrabajoDeVista}`}
-            {vista === 'tabla' && hayFiltrosActivos && ' · filtros activos'}
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            component="div"
+            sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.25 }}
+          >
+            <span>
+              {vista === 'carpetas'
+                ? `${carpetas.length} ${carpetas.length === 1 ? 'carpeta' : 'carpetas'} por locación`
+                : `${reportes.length} ${reportes.length === 1 ? 'reporte encontrado' : 'reportes encontrados'}`}
+            </span>
+            {vista === 'tabla' && idTrabajoDeVista && (
+              <>
+                <span>· ID {idTrabajoDeVista}</span>
+                <IconButton size="small" onClick={(e) => abrirEditarId(idTrabajoDeVista, e)}>
+                  <EditOutlinedIcon sx={{ fontSize: 14 }} />
+                </IconButton>
+              </>
+            )}
+            {vista === 'tabla' && hayFiltrosActivos && <span>· filtros activos</span>}
           </Typography>
         </Box>
       </Stack>
@@ -765,7 +830,17 @@ export default function PantallaReportes({ usuario }) {
                       )}
                     </TableCell>
                     <TableCell>
-                      {reporte.id_trabajo || (
+                      {reporte.id_trabajo ? (
+                        <Stack direction="row" spacing={0} sx={{ alignItems: 'center' }}>
+                          <span>{reporte.id_trabajo}</span>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => abrirEditarId(reporte.id_trabajo, e)}
+                          >
+                            <EditOutlinedIcon sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        </Stack>
+                      ) : (
                         <Button size="small" onClick={(e) => abrirAsignarId(reporte, e)}>
                           Asignar ID
                         </Button>
@@ -882,7 +957,17 @@ export default function PantallaReportes({ usuario }) {
                 </Typography>
                 <Typography variant="body2" component="div">
                   <strong>ID de trabajo:</strong>{' '}
-                  {reporteAbierto.id_trabajo || (
+                  {reporteAbierto.id_trabajo ? (
+                    <>
+                      {reporteAbierto.id_trabajo}
+                      <IconButton
+                        size="small"
+                        onClick={(e) => abrirEditarId(reporteAbierto.id_trabajo, e)}
+                      >
+                        <EditOutlinedIcon sx={{ fontSize: 14 }} />
+                      </IconButton>
+                    </>
+                  ) : (
                     <Button size="small" onClick={(e) => abrirAsignarId(reporteAbierto, e)}>
                       Asignar ID
                     </Button>
@@ -1005,6 +1090,53 @@ export default function PantallaReportes({ usuario }) {
                 startIcon={asignandoId ? <CircularProgress size={16} color="inherit" /> : null}
               >
                 {asignandoId ? 'Guardando...' : 'Guardar'}
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      {/* EDITAR ID DE TRABAJO */}
+      <Dialog
+        open={Boolean(idParaEditar)}
+        onClose={() => (editandoId ? null : setIdParaEditar(null))}
+        maxWidth="xs"
+        fullWidth
+      >
+        {idParaEditar && (
+          <>
+            <DialogTitle>Editar ID de trabajo</DialogTitle>
+            <DialogContent>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Se actualizará en todos los reportes que tienen el ID{' '}
+                <strong>{idParaEditar}</strong>, sin importar el proyecto o la locación.
+              </Typography>
+              <Autocomplete
+                freeSolo
+                options={idsTrabajoSugeridos}
+                inputValue={valorIdEditado}
+                onInputChange={(e, valorNuevo) => setValorIdEditado(valorNuevo)}
+                renderInput={(params) => (
+                  <TextField {...params} label="ID de trabajo" size="small" autoFocus />
+                )}
+              />
+              {errorEditarId && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {errorEditarId}
+                </Alert>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button onClick={() => setIdParaEditar(null)} disabled={editandoId}>
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                onClick={confirmarEditarId}
+                disabled={editandoId}
+                startIcon={editandoId ? <CircularProgress size={16} color="inherit" /> : null}
+              >
+                {editandoId ? 'Guardando...' : 'Guardar'}
               </Button>
             </DialogActions>
           </>

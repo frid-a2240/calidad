@@ -152,6 +152,14 @@ export async function asignarLocacion(reporteId, locacion) {
   return response.data
 }
 
+export async function editarIdTrabajo(idActual, idNuevo) {
+  const response = await api.patch('/reportes/id-trabajo', {
+    id_trabajo_actual: idActual,
+    id_trabajo_nuevo: idNuevo,
+  })
+  return response.data
+}
+
 export async function checkConexion() {
   try {
     const response = await api.get('/version', { timeout: 5000 })

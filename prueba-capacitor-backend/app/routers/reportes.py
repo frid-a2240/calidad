@@ -19,7 +19,12 @@ from app.models import (
     ReporteFoto,
     Usuario,
 )
-from app.schemas import AsignarIdTrabajoRequest, AsignarLocacionRequest, ReporteOut
+from app.schemas import (
+    AsignarIdTrabajoRequest,
+    AsignarLocacionRequest,
+    EditarIdTrabajoRequest,
+    ReporteOut,
+)
 
 router = APIRouter(prefix="/reportes", tags=["reportes"])
 
@@ -199,6 +204,39 @@ def listar_reportes(
         )
 
     return consulta.order_by(ReporteCabecera.fecha_creacion.desc()).all()
+
+
+@router.patch("/id-trabajo", response_model=dict)
+def editar_id_trabajo(
+    payload: EditarIdTrabajoRequest,
+    db: Session = Depends(get_db),
+    usuario_actual: Usuario = Depends(get_current_user),
+):
+    """Renombra un ID de trabajo en todos los reportes que lo tienen (ej.
+    para corregir un error de captura). Actúa sobre el valor, no sobre un
+    reporte puntual, para que un mismo trabajo (armado, soldadura, raíz...)
+    no quede repartido entre el ID viejo y el nuevo."""
+    actual = payload.id_trabajo_actual.strip()
+    nuevo = payload.id_trabajo_nuevo.strip()
+    if actual == nuevo:
+        raise HTTPException(
+            status_code=400, detail="El nuevo ID debe ser distinto al actual"
+        )
+
+    afectados = (
+        db.query(ReporteCabecera)
+        .filter(ReporteCabecera.id_trabajo == actual)
+        .update({ReporteCabecera.id_trabajo: nuevo}, synchronize_session=False)
+    )
+    if not afectados:
+        raise HTTPException(
+            status_code=404, detail="No hay reportes con ese ID de trabajo"
+        )
+
+    db.query(IdTrabajoOculto).filter(IdTrabajoOculto.id_trabajo == nuevo).delete()
+    db.commit()
+
+    return {"actualizados": afectados}
 
 
 @router.patch("/{reporte_id}/id-trabajo", response_model=ReporteOut)
