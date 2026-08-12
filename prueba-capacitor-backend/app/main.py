@@ -5,6 +5,7 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 from fastapi.responses import FileResponse, RedirectResponse
+from sqlalchemy import inspect, text
 
 # ruta absoluta: IIS no arranca con el mismo cwd que tu terminal
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -13,6 +14,29 @@ from app.database import Base, engine
 from app.routers import auth, catalogos, fpy_rwk, reportes
 
 ALIAS = "calidad"  # debe coincidir con vite.config.js y el alias en IIS
+
+
+def _agregar_columnas_faltantes():
+    """Base.metadata.create_all no altera tablas que ya existen, asi que las
+    columnas nuevas en modelos existentes (como reportes_cabecera) hay que
+    agregarlas a mano aqui para que el deploy sea solo git pull + reiniciar,
+    sin tener que entrar a psql en el servidor."""
+    inspector = inspect(engine)
+    if not inspector.has_table("reportes_cabecera"):
+        return
+    columnas = {c["name"] for c in inspector.get_columns("reportes_cabecera")}
+    if "locacion" not in columnas:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE reportes_cabecera ADD COLUMN locacion VARCHAR(100)"))
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_reportes_cabecera_locacion "
+                    "ON reportes_cabecera (locacion)"
+                )
+            )
+
+
+_agregar_columnas_faltantes()
 
 # Crea las tablas si no existen
 Base.metadata.create_all(bind=engine)

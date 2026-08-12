@@ -99,10 +99,22 @@ export async function ocultarIdTrabajo(idTrabajo) {
 }
 
 
-export async function crearReporte({ proyecto, idTrabajo, procesoId, comentario, fotosDataUrl }) {
+export async function listarLocaciones() {
+  const response = await api.get('/catalogos/locaciones')
+  return response.data
+}
+
+
+export async function ocultarLocacion(locacion) {
+  await api.delete('/catalogos/locaciones', { params: { locacion } })
+}
+
+
+export async function crearReporte({ proyecto, idTrabajo, locacion, procesoId, comentario, fotosDataUrl }) {
   const formData = new FormData()
   formData.append('proyecto', proyecto)
   formData.append('id_trabajo', idTrabajo)
+  formData.append('locacion', locacion)
   formData.append('proceso_id', procesoId)
   formData.append('comentario', comentario || '')
 

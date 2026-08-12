@@ -48,6 +48,16 @@ class IdTrabajoOculto(Base):
     )
 
 
+class LocacionOculta(Base):
+    __tablename__ = "locaciones_ocultas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    locacion = Column(String(100), unique=True, nullable=False, index=True)
+    fecha_creacion = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class Proceso(Base):
     __tablename__ = "procesos"
 
@@ -63,6 +73,7 @@ class ReporteCabecera(Base):
     id = Column(Integer, primary_key=True, index=True)
     proyecto = Column(String(200), nullable=False)
     id_trabajo = Column(String(100), nullable=True, index=True)
+    locacion = Column(String(100), nullable=True, index=True)
     proceso_id = Column(Integer, ForeignKey("procesos.id"), nullable=False, index=True)
     inspector_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False, index=True)
     comentario = Column(Text, nullable=True)

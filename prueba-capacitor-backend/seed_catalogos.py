@@ -1,6 +1,5 @@
 """
-Carga el catálogo fijo de Procesos.
-Uso: python seed_catalogos.py
+ python seed_catalogos.py
 """
 from app.database import Base, SessionLocal, engine
 from app.models import Proceso
@@ -12,6 +11,15 @@ PROCESOS = [
     "Soldadura",
     "Raíz",
     "Soldadura Final",
+    "Inspección Visual",
+    "Líquidos Penetrantes",
+    "Partículas Magnéticas",
+    "Toma de espesores (Calibraciones)",
+    "Pruebas Hidrostáticas Válvulas",
+    "Prueba de Estanqueidad Chorro de Agua a Presión",
+    "Prueba de Estanqueidad con Aire a Presión",
+    "Prueba de Vacio",
+    "Prueba de Gises",
 ]
 
 

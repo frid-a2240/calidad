@@ -4,7 +4,14 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import IdTrabajoOculto, Proceso, ProyectoOculto, ReporteCabecera, Usuario
+from app.models import (
+    IdTrabajoOculto,
+    LocacionOculta,
+    Proceso,
+    ProyectoOculto,
+    ReporteCabecera,
+    Usuario,
+)
 from app.schemas import InspectorOut, ProcesoOut
 
 router = APIRouter(prefix="/catalogos", tags=["catalogos"])
@@ -100,6 +107,47 @@ def ocultar_id_trabajo(
     )
     if not ya_oculto:
         db.add(IdTrabajoOculto(id_trabajo=id_trabajo))
+        db.commit()
+
+
+@router.get("/locaciones", response_model=list[str])
+def listar_locaciones(
+    db: Session = Depends(get_db),
+    usuario_actual: Usuario = Depends(get_current_user),
+):
+    """Locaciones (ej. 'Tanque 4') ya usadas en reportes, mas recientes primero.
+
+    Igual que /proyectos y /ids-trabajo: no es un catalogo fijo, se alimenta
+    solo con lo que los inspectores van escribiendo.
+    """
+    ocultos = {fila.locacion for fila in db.query(LocacionOculta.locacion).all()}
+
+    ultima_fecha = func.max(ReporteCabecera.fecha_creacion)
+    filas = (
+        db.query(ReporteCabecera.locacion)
+        .filter(ReporteCabecera.locacion.isnot(None))
+        .group_by(ReporteCabecera.locacion)
+        .order_by(ultima_fecha.desc())
+        .all()
+    )
+    return [fila.locacion for fila in filas if fila.locacion not in ocultos]
+
+
+@router.delete("/locaciones", status_code=status.HTTP_204_NO_CONTENT)
+def ocultar_locacion(
+    locacion: str = Query(..., min_length=1),
+    db: Session = Depends(get_db),
+    usuario_actual: Usuario = Depends(get_current_user),
+):
+    """Quita una locacion de la lista de sugerencias (no borra sus reportes).
+
+    Si esa locacion se vuelve a escribir en un reporte nuevo, reaparece sola.
+    """
+    ya_oculta = (
+        db.query(LocacionOculta).filter(LocacionOculta.locacion == locacion).first()
+    )
+    if not ya_oculta:
+        db.add(LocacionOculta(locacion=locacion))
         db.commit()
 
 

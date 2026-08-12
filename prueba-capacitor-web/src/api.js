@@ -96,13 +96,22 @@ export async function ocultarIdTrabajo(idTrabajo) {
   await api.delete('/catalogos/ids-trabajo', { params: { id_trabajo: idTrabajo } })
 }
 
+export async function listarLocaciones() {
+  const response = await api.get('/catalogos/locaciones')
+  return response.data
+}
+
+export async function ocultarLocacion(locacion) {
+  await api.delete('/catalogos/locaciones', { params: { locacion } })
+}
+
 export async function listarInspectores() {
   const response = await api.get('/catalogos/inspectores')
   return response.data
 }
 
 /**
- * filtros: { proyecto, idTrabajo, sinIdTrabajo, procesoId, inspectorId, fechaDesde, fechaHasta, q }
+ * filtros: { proyecto, idTrabajo, sinIdTrabajo, locacion, sinLocacion, procesoId, inspectorId, fechaDesde, fechaHasta, q }
  */
 export async function listarReportes(filtros = {}) {
   const params = {}
@@ -111,6 +120,11 @@ export async function listarReportes(filtros = {}) {
     params.sin_id_trabajo = true
   } else if (filtros.idTrabajo) {
     params.id_trabajo = filtros.idTrabajo
+  }
+  if (filtros.sinLocacion) {
+    params.sin_locacion = true
+  } else if (filtros.locacion) {
+    params.locacion = filtros.locacion
   }
   if (filtros.procesoId) params.proceso_id = filtros.procesoId
   if (filtros.inspectorId) params.inspector_id = filtros.inspectorId
@@ -130,6 +144,11 @@ export async function asignarIdTrabajo(reporteId, idTrabajo) {
   const response = await api.patch(`/reportes/${reporteId}/id-trabajo`, {
     id_trabajo: idTrabajo,
   })
+  return response.data
+}
+
+export async function asignarLocacion(reporteId, locacion) {
+  const response = await api.patch(`/reportes/${reporteId}/locacion`, { locacion })
   return response.data
 }
 

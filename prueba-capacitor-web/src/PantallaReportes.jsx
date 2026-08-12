@@ -47,11 +47,14 @@ import {
   listarProcesos,
   listarProyectos,
   listarIdsTrabajo,
+  listarLocaciones,
   listarInspectores,
   eliminarReporte,
   asignarIdTrabajo,
+  asignarLocacion,
   ocultarProyecto,
   ocultarIdTrabajo,
+  ocultarLocacion,
   urlFoto,
   extraerMensajeError,
 } from './api'
@@ -60,6 +63,8 @@ const FILTROS_VACIOS = {
   proyecto: '',
   idTrabajo: '',
   sinIdTrabajo: false,
+  locacion: '',
+  sinLocacion: false,
   procesoId: '',
   inspectorId: '',
   fechaDesde: '',
@@ -67,46 +72,48 @@ const FILTROS_VACIOS = {
   q: '',
 }
 
-const CLAVE_SIN_ID = '__sin_id__'
+const CLAVE_SIN_LOCACION = '__sin_locacion__'
 
-function agruparPorIdTrabajo(reportes) {
+function agruparPorLocacion(reportes) {
   const grupos = new Map()
-  const sinId = []
+  const sinLocacion = []
 
   for (const r of reportes) {
-    if (!r.id_trabajo) {
-      sinId.push(r)
+    if (!r.locacion) {
+      sinLocacion.push(r)
       continue
     }
-    if (!grupos.has(r.id_trabajo)) grupos.set(r.id_trabajo, [])
-    grupos.get(r.id_trabajo).push(r)
+    if (!grupos.has(r.locacion)) grupos.set(r.locacion, [])
+    grupos.get(r.locacion).push(r)
   }
 
   const masReciente = (items) =>
     items.reduce((a, b) => (a.fecha_creacion > b.fecha_creacion ? a : b))
 
-  const carpetas = Array.from(grupos.entries()).map(([idTrabajo, items]) => {
+  const carpetas = Array.from(grupos.entries()).map(([locacion, items]) => {
     const ultimo = masReciente(items)
     return {
-      clave: idTrabajo,
-      idTrabajo,
+      clave: locacion,
+      locacion,
+      idTrabajo: ultimo.id_trabajo,
       proyecto: ultimo.proyecto,
       total: items.length,
       fechaUltima: ultimo.fecha_creacion,
-      sinId: false,
+      sinLocacion: false,
     }
   })
   carpetas.sort((a, b) => (a.fechaUltima < b.fechaUltima ? 1 : -1))
 
-  if (sinId.length > 0) {
-    const ultimo = masReciente(sinId)
+  if (sinLocacion.length > 0) {
+    const ultimo = masReciente(sinLocacion)
     carpetas.push({
-      clave: CLAVE_SIN_ID,
+      clave: CLAVE_SIN_LOCACION,
+      locacion: null,
       idTrabajo: null,
       proyecto: null,
-      total: sinId.length,
+      total: sinLocacion.length,
       fechaUltima: ultimo.fecha_creacion,
-      sinId: true,
+      sinLocacion: true,
     })
   }
 
@@ -133,6 +140,7 @@ export default function PantallaReportes({ usuario }) {
   const [procesos, setProcesos] = useState([])
   const [proyectosSugeridos, setProyectosSugeridos] = useState([])
   const [idsTrabajoSugeridos, setIdsTrabajoSugeridos] = useState([])
+  const [locacionesSugeridas, setLocacionesSugeridas] = useState([])
   const [inspectores, setInspectores] = useState([])
 
   const [vista, setVista] = useState('carpetas') // 'carpetas' | 'tabla'
@@ -154,19 +162,26 @@ export default function PantallaReportes({ usuario }) {
   const [asignandoId, setAsignandoId] = useState(false)
   const [errorAsignarId, setErrorAsignarId] = useState(null)
 
+  const [reporteParaLocacion, setReporteParaLocacion] = useState(null)
+  const [valorLocacionNuevo, setValorLocacionNuevo] = useState('')
+  const [asignandoLocacion, setAsignandoLocacion] = useState(false)
+  const [errorAsignarLocacion, setErrorAsignarLocacion] = useState(null)
+
   useEffect(() => {
     const cargarCatalogos = async () => {
       try {
-        const [datosProcesos, datosProyectos, datosIdsTrabajo, datosInspectores] =
+        const [datosProcesos, datosProyectos, datosIdsTrabajo, datosLocaciones, datosInspectores] =
           await Promise.all([
             listarProcesos(),
             listarProyectos(),
             listarIdsTrabajo(),
+            listarLocaciones(),
             listarInspectores(),
           ])
         setProcesos(datosProcesos)
         setProyectosSugeridos(datosProyectos)
         setIdsTrabajoSugeridos(datosIdsTrabajo)
+        setLocacionesSugeridas(datosLocaciones)
         setInspectores(datosInspectores)
       } catch {
         // los catálogos son solo para los selects de filtro; si fallan,
@@ -196,7 +211,13 @@ export default function PantallaReportes({ usuario }) {
     iniciar()
   }, [cargarReportes])
 
-  const carpetas = useMemo(() => agruparPorIdTrabajo(reportes), [reportes])
+  const carpetas = useMemo(() => agruparPorLocacion(reportes), [reportes])
+
+  const idTrabajoDeVista = useMemo(() => {
+    if (vista !== 'tabla' || reportes.length === 0) return null
+    const ids = new Set(reportes.map((r) => r.id_trabajo).filter(Boolean))
+    return ids.size === 1 ? [...ids][0] : null
+  }, [vista, reportes])
 
   const buscar = (e) => {
     e?.preventDefault()
@@ -215,8 +236,8 @@ export default function PantallaReportes({ usuario }) {
   const abrirCarpeta = (carpeta) => {
     const nuevosFiltros = {
       ...FILTROS_VACIOS,
-      idTrabajo: carpeta.sinId ? '' : carpeta.idTrabajo,
-      sinIdTrabajo: carpeta.sinId,
+      locacion: carpeta.sinLocacion ? '' : carpeta.locacion,
+      sinLocacion: carpeta.sinLocacion,
     }
     setFiltros(nuevosFiltros)
     setFiltrosAplicados(nuevosFiltros)
@@ -253,6 +274,16 @@ export default function PantallaReportes({ usuario }) {
     }
   }
 
+  const borrarSugerenciaLocacion = async (nombre, e) => {
+    e.stopPropagation()
+    setLocacionesSugeridas((prev) => prev.filter((l) => l !== nombre))
+    try {
+      await ocultarLocacion(nombre)
+    } catch {
+      setLocacionesSugeridas((prev) => (prev.includes(nombre) ? prev : [...prev, nombre]))
+    }
+  }
+
   const abrirAsignarId = (reporte, e) => {
     e?.stopPropagation()
     setErrorAsignarId(null)
@@ -279,6 +310,37 @@ export default function PantallaReportes({ usuario }) {
       setErrorAsignarId(extraerMensajeError(err, 'No se pudo asignar el ID de trabajo'))
     } finally {
       setAsignandoId(false)
+    }
+  }
+
+  const abrirAsignarLocacion = (reporte, e) => {
+    e?.stopPropagation()
+    setErrorAsignarLocacion(null)
+    setValorLocacionNuevo('')
+    setReporteParaLocacion(reporte)
+  }
+
+  const confirmarAsignarLocacion = async () => {
+    if (!reporteParaLocacion) return
+    const locacionLimpia = valorLocacionNuevo.trim()
+    if (!locacionLimpia) {
+      setErrorAsignarLocacion('Escribe una locación')
+      return
+    }
+    setAsignandoLocacion(true)
+    setErrorAsignarLocacion(null)
+    try {
+      const actualizado = await asignarLocacion(reporteParaLocacion.id, locacionLimpia)
+      setReportes((prev) => prev.map((r) => (r.id === actualizado.id ? actualizado : r)))
+      if (reporteAbierto?.id === actualizado.id) setReporteAbierto(actualizado)
+      setLocacionesSugeridas((prev) =>
+        prev.includes(locacionLimpia) ? prev : [locacionLimpia, ...prev]
+      )
+      setReporteParaLocacion(null)
+    } catch (err) {
+      setErrorAsignarLocacion(extraerMensajeError(err, 'No se pudo asignar la locación'))
+    } finally {
+      setAsignandoLocacion(false)
     }
   }
 
@@ -322,8 +384,9 @@ export default function PantallaReportes({ usuario }) {
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {vista === 'carpetas'
-              ? `${carpetas.length} ${carpetas.length === 1 ? 'carpeta' : 'carpetas'} por ID de trabajo`
+              ? `${carpetas.length} ${carpetas.length === 1 ? 'carpeta' : 'carpetas'} por locación`
               : `${reportes.length} ${reportes.length === 1 ? 'reporte encontrado' : 'reportes encontrados'}`}
+            {vista === 'tabla' && idTrabajoDeVista && ` · ID ${idTrabajoDeVista}`}
             {vista === 'tabla' && hayFiltrosActivos && ' · filtros activos'}
           </Typography>
         </Box>
@@ -382,6 +445,48 @@ export default function PantallaReportes({ usuario }) {
                 }}
                 renderInput={(params) => (
                   <TextField {...params} label="Proyecto" size="small" />
+                )}
+              />
+
+              <Autocomplete
+                freeSolo
+                options={locacionesSugeridas}
+                value={filtros.locacion}
+                onInputChange={(e, valorNuevo) =>
+                  setFiltros((prev) => ({ ...prev, locacion: valorNuevo, sinLocacion: false }))
+                }
+                sx={{ minWidth: 160 }}
+                renderOption={(props, option) => {
+                  const { key, ...optionProps } = props
+                  return (
+                    <Box
+                      key={key}
+                      component="li"
+                      {...optionProps}
+                      sx={{
+                        display: 'flex !important',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {option}
+                      </Box>
+                      <IconButton
+                        size="small"
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                        }}
+                        onClick={(e) => borrarSugerenciaLocacion(option, e)}
+                      >
+                        <CloseIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Box>
+                  )
+                }}
+                renderInput={(params) => (
+                  <TextField {...params} label="Locación" placeholder="Ej. Tanque 4" size="small" />
                 )}
               />
 
@@ -582,8 +687,8 @@ export default function PantallaReportes({ usuario }) {
                       width: 44,
                       height: 44,
                       borderRadius: 2,
-                      bgcolor: carpeta.sinId ? 'action.disabledBackground' : 'secondary.main',
-                      color: carpeta.sinId ? 'text.secondary' : 'white',
+                      bgcolor: carpeta.sinLocacion ? 'action.disabledBackground' : 'secondary.main',
+                      color: carpeta.sinLocacion ? 'text.secondary' : 'white',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -594,10 +699,10 @@ export default function PantallaReportes({ usuario }) {
                   </Box>
                   <Box sx={{ minWidth: 0 }}>
                     <Typography sx={{ fontWeight: 700 }} noWrap>
-                      {carpeta.sinId ? 'Sin ID' : carpeta.idTrabajo}
+                      {carpeta.sinLocacion ? 'Sin Locación' : carpeta.locacion}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" noWrap>
-                      {carpeta.proyecto ? `${carpeta.proyecto} · ` : ''}
+                      {carpeta.idTrabajo ? `ID ${carpeta.idTrabajo} · ` : ''}
                       {carpeta.total} {carpeta.total === 1 ? 'reporte' : 'reportes'}
                     </Typography>
                   </Box>
@@ -630,6 +735,7 @@ export default function PantallaReportes({ usuario }) {
             <TableHead>
               <TableRow>
                 <TableCell>Proyecto</TableCell>
+                <TableCell>Locación</TableCell>
                 <TableCell>ID</TableCell>
                 <TableCell>Proceso</TableCell>
                 <TableCell>Inspector</TableCell>
@@ -651,6 +757,13 @@ export default function PantallaReportes({ usuario }) {
                     sx={{ cursor: 'pointer' }}
                   >
                     <TableCell sx={{ fontWeight: 600 }}>{reporte.proyecto}</TableCell>
+                    <TableCell>
+                      {reporte.locacion || (
+                        <Button size="small" onClick={(e) => abrirAsignarLocacion(reporte, e)}>
+                          Asignar Locación
+                        </Button>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {reporte.id_trabajo || (
                         <Button size="small" onClick={(e) => abrirAsignarId(reporte, e)}>
@@ -759,6 +872,14 @@ export default function PantallaReportes({ usuario }) {
             </DialogTitle>
             <DialogContent dividers>
               <Stack spacing={0.5} sx={{ mb: 2 }}>
+                <Typography variant="body2" component="div">
+                  <strong>Locación:</strong>{' '}
+                  {reporteAbierto.locacion || (
+                    <Button size="small" onClick={(e) => abrirAsignarLocacion(reporteAbierto, e)}>
+                      Asignar Locación
+                    </Button>
+                  )}
+                </Typography>
                 <Typography variant="body2" component="div">
                   <strong>ID de trabajo:</strong>{' '}
                   {reporteAbierto.id_trabajo || (
@@ -884,6 +1005,59 @@ export default function PantallaReportes({ usuario }) {
                 startIcon={asignandoId ? <CircularProgress size={16} color="inherit" /> : null}
               >
                 {asignandoId ? 'Guardando...' : 'Guardar'}
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      {/* ASIGNAR LOCACIÓN */}
+      <Dialog
+        open={Boolean(reporteParaLocacion)}
+        onClose={() => (asignandoLocacion ? null : setReporteParaLocacion(null))}
+        maxWidth="xs"
+        fullWidth
+      >
+        {reporteParaLocacion && (
+          <>
+            <DialogTitle>Asignar locación</DialogTitle>
+            <DialogContent>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {reporteParaLocacion.proyecto} · {reporteParaLocacion.proceso.nombre} ·{' '}
+                {reporteParaLocacion.inspector.nombre}
+              </Typography>
+              <Autocomplete
+                freeSolo
+                options={locacionesSugeridas}
+                inputValue={valorLocacionNuevo}
+                onInputChange={(e, valorNuevo) => setValorLocacionNuevo(valorNuevo)}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Locación"
+                    placeholder="Ej. Tanque 4"
+                    size="small"
+                    autoFocus
+                  />
+                )}
+              />
+              {errorAsignarLocacion && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {errorAsignarLocacion}
+                </Alert>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button onClick={() => setReporteParaLocacion(null)} disabled={asignandoLocacion}>
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                onClick={confirmarAsignarLocacion}
+                disabled={asignandoLocacion}
+                startIcon={asignandoLocacion ? <CircularProgress size={16} color="inherit" /> : null}
+              >
+                {asignandoLocacion ? 'Guardando...' : 'Guardar'}
               </Button>
             </DialogActions>
           </>

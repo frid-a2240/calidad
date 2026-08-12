@@ -57,10 +57,15 @@ class AsignarIdTrabajoRequest(BaseModel):
     id_trabajo: str = Field(..., min_length=1, max_length=100)
 
 
+class AsignarLocacionRequest(BaseModel):
+    locacion: str = Field(..., min_length=1, max_length=100)
+
+
 class ReporteOut(BaseModel):
     id: int
     proyecto: str
     id_trabajo: Optional[str] = None
+    locacion: Optional[str] = None
     proceso: ProcesoOut
     inspector: UsuarioOut
     comentario: Optional[str] = None

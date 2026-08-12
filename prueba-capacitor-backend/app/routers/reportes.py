@@ -10,8 +10,16 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import IdTrabajoOculto, Proceso, ProyectoOculto, ReporteCabecera, ReporteFoto, Usuario
-from app.schemas import AsignarIdTrabajoRequest, ReporteOut
+from app.models import (
+    IdTrabajoOculto,
+    LocacionOculta,
+    Proceso,
+    ProyectoOculto,
+    ReporteCabecera,
+    ReporteFoto,
+    Usuario,
+)
+from app.schemas import AsignarIdTrabajoRequest, AsignarLocacionRequest, ReporteOut
 
 router = APIRouter(prefix="/reportes", tags=["reportes"])
 
@@ -84,6 +92,10 @@ async def crear_reporte(
     if not id_trabajo:
         raise HTTPException(status_code=400, detail="El ID de trabajo es obligatorio")
 
+    locacion = str(form.get("locacion", "")).strip()
+    if not locacion:
+        raise HTTPException(status_code=400, detail="La locación es obligatoria")
+
     try:
         proceso_id = int(form["proceso_id"])
     except (KeyError, ValueError):
@@ -106,6 +118,7 @@ async def crear_reporte(
     nuevo = ReporteCabecera(
         proyecto=proyecto,
         id_trabajo=id_trabajo,
+        locacion=locacion,
         proceso_id=proceso.id,
         inspector_id=usuario_actual.id,
         comentario=comentario,
@@ -115,6 +128,7 @@ async def crear_reporte(
 
     db.query(ProyectoOculto).filter(ProyectoOculto.nombre == proyecto).delete()
     db.query(IdTrabajoOculto).filter(IdTrabajoOculto.id_trabajo == id_trabajo).delete()
+    db.query(LocacionOculta).filter(LocacionOculta.locacion == locacion).delete()
 
     for archivo in archivos:
         foto_ruta, foto_nombre = await _guardar_foto(archivo)
@@ -138,6 +152,8 @@ def listar_reportes(
     proyecto: Optional[str] = Query(None),
     id_trabajo: Optional[str] = Query(None),
     sin_id_trabajo: Optional[bool] = Query(None),
+    locacion: Optional[str] = Query(None),
+    sin_locacion: Optional[bool] = Query(None),
     proceso_id: Optional[int] = Query(None),
     inspector_id: Optional[int] = Query(None),
     fecha_desde: Optional[date] = Query(None),
@@ -156,6 +172,10 @@ def listar_reportes(
         consulta = consulta.filter(ReporteCabecera.id_trabajo.is_(None))
     elif id_trabajo:
         consulta = consulta.filter(ReporteCabecera.id_trabajo.ilike(f"%{id_trabajo}%"))
+    if sin_locacion:
+        consulta = consulta.filter(ReporteCabecera.locacion.is_(None))
+    elif locacion:
+        consulta = consulta.filter(ReporteCabecera.locacion.ilike(f"%{locacion}%"))
     if proceso_id:
         consulta = consulta.filter(ReporteCabecera.proceso_id == proceso_id)
     if inspector_id:
@@ -202,6 +222,32 @@ def asignar_id_trabajo(
     id_trabajo = payload.id_trabajo.strip()
     reporte.id_trabajo = id_trabajo
     db.query(IdTrabajoOculto).filter(IdTrabajoOculto.id_trabajo == id_trabajo).delete()
+    db.commit()
+
+    return _cargar_completo(db, reporte.id)
+
+
+@router.patch("/{reporte_id}/locacion", response_model=ReporteOut)
+def asignar_locacion(
+    reporte_id: int,
+    payload: AsignarLocacionRequest,
+    db: Session = Depends(get_db),
+    usuario_actual: Usuario = Depends(get_current_user),
+):
+    """Asigna una locación a un reporte que no tenía (capturado antes de que
+    el campo existiera). Solo aplica una vez: si ya tiene locación, no se
+    puede pisar desde aquí."""
+    reporte = db.query(ReporteCabecera).filter(ReporteCabecera.id == reporte_id).first()
+    if not reporte:
+        raise HTTPException(status_code=404, detail="Reporte no encontrado")
+    if reporte.locacion:
+        raise HTTPException(
+            status_code=400, detail="Este reporte ya tiene una locación"
+        )
+
+    locacion = payload.locacion.strip()
+    reporte.locacion = locacion
+    db.query(LocacionOculta).filter(LocacionOculta.locacion == locacion).delete()
     db.commit()
 
     return _cargar_completo(db, reporte.id)

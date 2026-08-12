@@ -30,17 +30,21 @@ import {
   ocultarProyecto,
   listarIdsTrabajo,
   ocultarIdTrabajo,
+  listarLocaciones,
+  ocultarLocacion,
 } from './api'
 
 export default function PantallaReportar({ conectado, onReporteEnviado }) {
   const [procesos, setProcesos] = useState([])
   const [proyectos, setProyectos] = useState([])
   const [idsTrabajo, setIdsTrabajo] = useState([])
+  const [locaciones, setLocaciones] = useState([])
   const [cargandoCatalogos, setCargandoCatalogos] = useState(true)
   const [errorCatalogos, setErrorCatalogos] = useState(null)
 
   const [proyecto, setProyecto] = useState('')
   const [idTrabajo, setIdTrabajo] = useState('')
+  const [locacion, setLocacion] = useState('')
   const [procesoId, setProcesoId] = useState('')
   const [fotos, setFotos] = useState([])
   const [comentario, setComentario] = useState('')
@@ -53,14 +57,16 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
       setCargandoCatalogos(true)
       setErrorCatalogos(null)
       try {
-        const [datosProcesos, datosProyectos, datosIdsTrabajo] = await Promise.all([
+        const [datosProcesos, datosProyectos, datosIdsTrabajo, datosLocaciones] = await Promise.all([
           listarProcesos(),
           listarProyectos(),
           listarIdsTrabajo(),
+          listarLocaciones(),
         ])
         setProcesos(datosProcesos)
         setProyectos(datosProyectos)
         setIdsTrabajo(datosIdsTrabajo)
+        setLocaciones(datosLocaciones)
       } catch (err) {
         setErrorCatalogos(
           err.response?.data?.detail || 'No se pudo cargar el catálogo de procesos'
@@ -113,9 +119,20 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
     }
   }
 
+  const borrarSugerenciaLocacion = async (nombre, e) => {
+    e.stopPropagation()
+    setLocaciones((prev) => prev.filter((l) => l !== nombre))
+    try {
+      await ocultarLocacion(nombre)
+    } catch {
+      setLocaciones((prev) => (prev.includes(nombre) ? prev : [...prev, nombre]))
+    }
+  }
+
   const puedeEnviar =
     proyecto.trim().length > 0 &&
     idTrabajo.trim().length > 0 &&
+    locacion.trim().length > 0 &&
     procesoId &&
     fotos.length > 0 &&
     conectado
@@ -128,6 +145,7 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
       const resultado = await crearReporte({
         proyecto: proyecto.trim(),
         idTrabajo: idTrabajo.trim(),
+        locacion: locacion.trim(),
         procesoId,
         comentario,
         fotosDataUrl: fotos,
@@ -138,6 +156,7 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
       )
       setProyecto('')
       setIdTrabajo('')
+      setLocacion('')
       setProcesoId('')
       setFotos([])
       setComentario('')
@@ -257,6 +276,51 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
               }}
               renderInput={(params) => (
                 <TextField {...params} label="ID de trabajo" fullWidth size="small" />
+              )}
+            />
+            <Autocomplete
+              freeSolo
+              options={locaciones}
+              value={locacion}
+              onInputChange={(e, valorNuevo) => setLocacion(valorNuevo)}
+              disabled={enviando}
+              renderOption={(props, option) => {
+                const { key, ...optionProps } = props
+                return (
+                  <Box
+                    key={key}
+                    component="li"
+                    {...optionProps}
+                    sx={{
+                      display: 'flex !important',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {option}
+                    </Box>
+                    <IconButton
+                      size="small"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                      }}
+                      onClick={(e) => borrarSugerenciaLocacion(option, e)}
+                    >
+                      <CloseIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Box>
+                )
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Locación"
+                  placeholder="Ej. Tanque 4"
+                  fullWidth
+                  size="small"
+                />
               )}
             />
             <FormControl fullWidth size="small">
