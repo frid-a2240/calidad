@@ -126,6 +126,13 @@ export async function eliminarReporte(reporteId) {
   await api.delete(`/reportes/${reporteId}`)
 }
 
+export async function asignarIdTrabajo(reporteId, idTrabajo) {
+  const response = await api.patch(`/reportes/${reporteId}/id-trabajo`, {
+    id_trabajo: idTrabajo,
+  })
+  return response.data
+}
+
 export async function checkConexion() {
   try {
     const response = await api.get('/version', { timeout: 5000 })

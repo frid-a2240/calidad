@@ -49,6 +49,7 @@ import {
   listarIdsTrabajo,
   listarInspectores,
   eliminarReporte,
+  asignarIdTrabajo,
   ocultarProyecto,
   ocultarIdTrabajo,
   urlFoto,
@@ -148,6 +149,11 @@ export default function PantallaReportes({ usuario }) {
   const [eliminando, setEliminando] = useState(false)
   const [errorEliminar, setErrorEliminar] = useState(null)
 
+  const [reporteParaId, setReporteParaId] = useState(null)
+  const [valorIdNuevo, setValorIdNuevo] = useState('')
+  const [asignandoId, setAsignandoId] = useState(false)
+  const [errorAsignarId, setErrorAsignarId] = useState(null)
+
   useEffect(() => {
     const cargarCatalogos = async () => {
       try {
@@ -244,6 +250,35 @@ export default function PantallaReportes({ usuario }) {
       await ocultarIdTrabajo(id)
     } catch {
       setIdsTrabajoSugeridos((prev) => (prev.includes(id) ? prev : [...prev, id]))
+    }
+  }
+
+  const abrirAsignarId = (reporte, e) => {
+    e?.stopPropagation()
+    setErrorAsignarId(null)
+    setValorIdNuevo('')
+    setReporteParaId(reporte)
+  }
+
+  const confirmarAsignarId = async () => {
+    if (!reporteParaId) return
+    const idLimpio = valorIdNuevo.trim()
+    if (!idLimpio) {
+      setErrorAsignarId('Escribe un ID de trabajo')
+      return
+    }
+    setAsignandoId(true)
+    setErrorAsignarId(null)
+    try {
+      const actualizado = await asignarIdTrabajo(reporteParaId.id, idLimpio)
+      setReportes((prev) => prev.map((r) => (r.id === actualizado.id ? actualizado : r)))
+      if (reporteAbierto?.id === actualizado.id) setReporteAbierto(actualizado)
+      setIdsTrabajoSugeridos((prev) => (prev.includes(idLimpio) ? prev : [idLimpio, ...prev]))
+      setReporteParaId(null)
+    } catch (err) {
+      setErrorAsignarId(extraerMensajeError(err, 'No se pudo asignar el ID de trabajo'))
+    } finally {
+      setAsignandoId(false)
     }
   }
 
@@ -616,7 +651,13 @@ export default function PantallaReportes({ usuario }) {
                     sx={{ cursor: 'pointer' }}
                   >
                     <TableCell sx={{ fontWeight: 600 }}>{reporte.proyecto}</TableCell>
-                    <TableCell>{reporte.id_trabajo || '—'}</TableCell>
+                    <TableCell>
+                      {reporte.id_trabajo || (
+                        <Button size="small" onClick={(e) => abrirAsignarId(reporte, e)}>
+                          Asignar ID
+                        </Button>
+                      )}
+                    </TableCell>
                     <TableCell>{reporte.proceso.nombre}</TableCell>
                     <TableCell>
                       <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
@@ -718,8 +759,13 @@ export default function PantallaReportes({ usuario }) {
             </DialogTitle>
             <DialogContent dividers>
               <Stack spacing={0.5} sx={{ mb: 2 }}>
-                <Typography variant="body2">
-                  <strong>ID de trabajo:</strong> {reporteAbierto.id_trabajo || '—'}
+                <Typography variant="body2" component="div">
+                  <strong>ID de trabajo:</strong>{' '}
+                  {reporteAbierto.id_trabajo || (
+                    <Button size="small" onClick={(e) => abrirAsignarId(reporteAbierto, e)}>
+                      Asignar ID
+                    </Button>
+                  )}
                 </Typography>
                 <Typography variant="body2">
                   <strong>Inspector:</strong> {reporteAbierto.inspector.nombre}
@@ -795,6 +841,53 @@ export default function PantallaReportes({ usuario }) {
           </IconButton>
           <Box component="img" src={fotoAmpliada} alt="" sx={{ width: '100%', display: 'block' }} />
         </DialogContent>
+      </Dialog>
+
+      {/* ASIGNAR ID DE TRABAJO */}
+      <Dialog
+        open={Boolean(reporteParaId)}
+        onClose={() => (asignandoId ? null : setReporteParaId(null))}
+        maxWidth="xs"
+        fullWidth
+      >
+        {reporteParaId && (
+          <>
+            <DialogTitle>Asignar ID de trabajo</DialogTitle>
+            <DialogContent>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {reporteParaId.proyecto} · {reporteParaId.proceso.nombre} ·{' '}
+                {reporteParaId.inspector.nombre}
+              </Typography>
+              <Autocomplete
+                freeSolo
+                options={idsTrabajoSugeridos}
+                inputValue={valorIdNuevo}
+                onInputChange={(e, valorNuevo) => setValorIdNuevo(valorNuevo)}
+                renderInput={(params) => (
+                  <TextField {...params} label="ID de trabajo" size="small" autoFocus />
+                )}
+              />
+              {errorAsignarId && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {errorAsignarId}
+                </Alert>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button onClick={() => setReporteParaId(null)} disabled={asignandoId}>
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                onClick={confirmarAsignarId}
+                disabled={asignandoId}
+                startIcon={asignandoId ? <CircularProgress size={16} color="inherit" /> : null}
+              >
+                {asignandoId ? 'Guardando...' : 'Guardar'}
+              </Button>
+            </DialogActions>
+          </>
+        )}
       </Dialog>
 
       {/* CONFIRMAR ELIMINAR */}

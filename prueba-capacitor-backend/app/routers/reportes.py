@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.deps import get_current_user
 from app.models import IdTrabajoOculto, Proceso, ProyectoOculto, ReporteCabecera, ReporteFoto, Usuario
-from app.schemas import ReporteOut
+from app.schemas import AsignarIdTrabajoRequest, ReporteOut
 
 router = APIRouter(prefix="/reportes", tags=["reportes"])
 
@@ -179,6 +179,32 @@ def listar_reportes(
         )
 
     return consulta.order_by(ReporteCabecera.fecha_creacion.desc()).all()
+
+
+@router.patch("/{reporte_id}/id-trabajo", response_model=ReporteOut)
+def asignar_id_trabajo(
+    reporte_id: int,
+    payload: AsignarIdTrabajoRequest,
+    db: Session = Depends(get_db),
+    usuario_actual: Usuario = Depends(get_current_user),
+):
+    """Asigna un ID de trabajo a un reporte que no tenía (capturado antes de
+    que el campo existiera). Solo aplica una vez: si ya tiene ID, no se
+    puede pisar desde aquí."""
+    reporte = db.query(ReporteCabecera).filter(ReporteCabecera.id == reporte_id).first()
+    if not reporte:
+        raise HTTPException(status_code=404, detail="Reporte no encontrado")
+    if reporte.id_trabajo:
+        raise HTTPException(
+            status_code=400, detail="Este reporte ya tiene un ID de trabajo"
+        )
+
+    id_trabajo = payload.id_trabajo.strip()
+    reporte.id_trabajo = id_trabajo
+    db.query(IdTrabajoOculto).filter(IdTrabajoOculto.id_trabajo == id_trabajo).delete()
+    db.commit()
+
+    return _cargar_completo(db, reporte.id)
 
 
 @router.delete("/{reporte_id}", status_code=status.HTTP_204_NO_CONTENT)

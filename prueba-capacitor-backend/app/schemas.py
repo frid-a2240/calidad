@@ -53,6 +53,10 @@ class FotoOut(BaseModel):
         from_attributes = True
 
 
+class AsignarIdTrabajoRequest(BaseModel):
+    id_trabajo: str = Field(..., min_length=1, max_length=100)
+
+
 class ReporteOut(BaseModel):
     id: int
     proyecto: str
