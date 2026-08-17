@@ -20,6 +20,7 @@ import {
   Send as SendIcon,
   Close as CloseIcon,
   AddAPhoto as AddAPhotoIcon,
+  AddPhotoAlternateOutlined as AddPhotoAlternateOutlinedIcon,
   CloudQueueOutlined as CloudQueueOutlinedIcon,
 } from '@mui/icons-material'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
@@ -123,19 +124,25 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
     primerRender.current = false
   }, [cargarPendientes, pendientesVersion])
 
-  const agregarFoto = async () => {
+  const agregarFoto = async (source) => {
     try {
       const image = await Camera.getPhoto({
         quality: 80,
         width: 1600,
         allowEditing: false,
         resultType: CameraResultType.DataUrl,
-        source: CameraSource.Camera,
+        source,
       })
       setFotos((prev) => [...prev, image.dataUrl])
     } catch (error) {
       if (!String(error).includes('cancelled')) {
-        setMensaje({ tipo: 'error', texto: 'No se pudo abrir la cámara' })
+        setMensaje({
+          tipo: 'error',
+          texto:
+            source === CameraSource.Camera
+              ? 'No se pudo abrir la cámara'
+              : 'No se pudo abrir la galería',
+        })
       }
     }
   }
@@ -504,7 +511,7 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
             ))}
 
             <Box
-              onClick={enviando ? undefined : agregarFoto}
+              onClick={enviando ? undefined : () => agregarFoto(CameraSource.Camera)}
               sx={{
                 width: 88,
                 height: 88,
@@ -525,7 +532,33 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
             >
               <AddAPhotoIcon sx={{ fontSize: 22, color: 'text.secondary' }} />
               <Typography variant="caption" color="text.secondary">
-                Agregar
+                Tomar foto
+              </Typography>
+            </Box>
+
+            <Box
+              onClick={enviando ? undefined : () => agregarFoto(CameraSource.Photos)}
+              sx={{
+                width: 88,
+                height: 88,
+                mb: 1.5,
+                border: '2px dashed',
+                borderColor: 'divider',
+                borderRadius: 1.5,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: enviando ? 'not-allowed' : 'pointer',
+                gap: 0.5,
+                '&:hover': {
+                  borderColor: enviando ? undefined : 'primary.main',
+                },
+              }}
+            >
+              <AddPhotoAlternateOutlinedIcon sx={{ fontSize: 22, color: 'text.secondary' }} />
+              <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+                Subir foto
               </Typography>
             </Box>
           </Stack>
