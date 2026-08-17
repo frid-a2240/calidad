@@ -160,6 +160,30 @@ export async function editarIdTrabajo(idActual, idNuevo) {
   return response.data
 }
 
+export async function editarLocacion(locacionActual, locacionNueva) {
+  const response = await api.patch('/reportes/locacion', {
+    locacion_actual: locacionActual,
+    locacion_nueva: locacionNueva,
+  })
+  return response.data
+}
+
+export async function editarProyecto(proyectoActual, proyectoNuevo) {
+  const response = await api.patch('/reportes/proyecto', {
+    proyecto_actual: proyectoActual,
+    proyecto_nuevo: proyectoNuevo,
+  })
+  return response.data
+}
+
+export async function editarReporte(reporteId, { procesoId, comentario } = {}) {
+  const payload = {}
+  if (procesoId !== undefined) payload.proceso_id = procesoId
+  if (comentario !== undefined) payload.comentario = comentario
+  const response = await api.patch(`/reportes/${reporteId}`, payload)
+  return response.data
+}
+
 export async function checkConexion() {
   try {
     const response = await api.get('/version', { timeout: 5000 })

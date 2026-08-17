@@ -23,6 +23,9 @@ from app.schemas import (
     AsignarIdTrabajoRequest,
     AsignarLocacionRequest,
     EditarIdTrabajoRequest,
+    EditarLocacionRequest,
+    EditarProyectoRequest,
+    EditarReporteRequest,
     ReporteOut,
 )
 
@@ -239,6 +242,64 @@ def editar_id_trabajo(
     return {"actualizados": afectados}
 
 
+@router.patch("/locacion", response_model=dict)
+def editar_locacion(
+    payload: EditarLocacionRequest,
+    db: Session = Depends(get_db),
+    usuario_actual: Usuario = Depends(get_current_user),
+):
+    """Renombra una locación en todos los reportes que la tienen. Igual que
+    editar_id_trabajo: actúa sobre el valor, no sobre un reporte puntual."""
+    actual = payload.locacion_actual.strip()
+    nueva = payload.locacion_nueva.strip()
+    if actual == nueva:
+        raise HTTPException(
+            status_code=400, detail="La nueva locación debe ser distinta a la actual"
+        )
+
+    afectados = (
+        db.query(ReporteCabecera)
+        .filter(ReporteCabecera.locacion == actual)
+        .update({ReporteCabecera.locacion: nueva}, synchronize_session=False)
+    )
+    if not afectados:
+        raise HTTPException(status_code=404, detail="No hay reportes con esa locación")
+
+    db.query(LocacionOculta).filter(LocacionOculta.locacion == nueva).delete()
+    db.commit()
+
+    return {"actualizados": afectados}
+
+
+@router.patch("/proyecto", response_model=dict)
+def editar_proyecto(
+    payload: EditarProyectoRequest,
+    db: Session = Depends(get_db),
+    usuario_actual: Usuario = Depends(get_current_user),
+):
+    """Renombra un proyecto en todos los reportes que lo tienen. Igual que
+    editar_id_trabajo: actúa sobre el valor, no sobre un reporte puntual."""
+    actual = payload.proyecto_actual.strip()
+    nuevo = payload.proyecto_nuevo.strip()
+    if actual == nuevo:
+        raise HTTPException(
+            status_code=400, detail="El nuevo proyecto debe ser distinto al actual"
+        )
+
+    afectados = (
+        db.query(ReporteCabecera)
+        .filter(ReporteCabecera.proyecto == actual)
+        .update({ReporteCabecera.proyecto: nuevo}, synchronize_session=False)
+    )
+    if not afectados:
+        raise HTTPException(status_code=404, detail="No hay reportes con ese proyecto")
+
+    db.query(ProyectoOculto).filter(ProyectoOculto.nombre == nuevo).delete()
+    db.commit()
+
+    return {"actualizados": afectados}
+
+
 @router.patch("/{reporte_id}/id-trabajo", response_model=ReporteOut)
 def asignar_id_trabajo(
     reporte_id: int,
@@ -286,6 +347,34 @@ def asignar_locacion(
     locacion = payload.locacion.strip()
     reporte.locacion = locacion
     db.query(LocacionOculta).filter(LocacionOculta.locacion == locacion).delete()
+    db.commit()
+
+    return _cargar_completo(db, reporte.id)
+
+
+@router.patch("/{reporte_id}", response_model=ReporteOut)
+def editar_reporte(
+    reporte_id: int,
+    payload: EditarReporteRequest,
+    db: Session = Depends(get_db),
+    usuario_actual: Usuario = Depends(get_current_user),
+):
+    """Edita el proceso y/o los hallazgos de un reporte puntual (a
+    diferencia de proyecto/ID/locación, estos campos son propios de cada
+    reporte, no se comparten entre los reportes de un mismo trabajo)."""
+    reporte = db.query(ReporteCabecera).filter(ReporteCabecera.id == reporte_id).first()
+    if not reporte:
+        raise HTTPException(status_code=404, detail="Reporte no encontrado")
+
+    if payload.proceso_id is not None:
+        proceso = db.query(Proceso).filter(Proceso.id == payload.proceso_id).first()
+        if not proceso:
+            raise HTTPException(status_code=404, detail="Proceso no encontrado")
+        reporte.proceso_id = payload.proceso_id
+
+    if payload.comentario is not None:
+        reporte.comentario = payload.comentario.strip() or None
+
     db.commit()
 
     return _cargar_completo(db, reporte.id)

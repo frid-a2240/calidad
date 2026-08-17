@@ -66,6 +66,21 @@ class AsignarLocacionRequest(BaseModel):
     locacion: str = Field(..., min_length=1, max_length=100)
 
 
+class EditarLocacionRequest(BaseModel):
+    locacion_actual: str = Field(..., min_length=1, max_length=100)
+    locacion_nueva: str = Field(..., min_length=1, max_length=100)
+
+
+class EditarProyectoRequest(BaseModel):
+    proyecto_actual: str = Field(..., min_length=1, max_length=200)
+    proyecto_nuevo: str = Field(..., min_length=1, max_length=200)
+
+
+class EditarReporteRequest(BaseModel):
+    proceso_id: Optional[int] = None
+    comentario: Optional[str] = Field(default=None, max_length=5000)
+
+
 class ReporteOut(BaseModel):
     id: int
     proyecto: str

@@ -22,9 +22,6 @@ PROCESOS = [
     "Prueba de Gises",
 ]
 
-
-
-
 def main():
     db = SessionLocal()
     try:
@@ -43,6 +40,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 

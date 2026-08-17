@@ -54,6 +54,9 @@ import {
   asignarIdTrabajo,
   asignarLocacion,
   editarIdTrabajo,
+  editarLocacion,
+  editarProyecto,
+  editarReporte,
   ocultarProyecto,
   ocultarIdTrabajo,
   ocultarLocacion,
@@ -173,6 +176,26 @@ export default function PantallaReportes({ usuario }) {
   const [valorIdEditado, setValorIdEditado] = useState('')
   const [editandoId, setEditandoId] = useState(false)
   const [errorEditarId, setErrorEditarId] = useState(null)
+
+  const [proyectoParaEditar, setProyectoParaEditar] = useState(null)
+  const [valorProyectoEditado, setValorProyectoEditado] = useState('')
+  const [editandoProyecto, setEditandoProyecto] = useState(false)
+  const [errorEditarProyecto, setErrorEditarProyecto] = useState(null)
+
+  const [locacionParaEditar, setLocacionParaEditar] = useState(null)
+  const [valorLocacionEditada, setValorLocacionEditada] = useState('')
+  const [editandoLocacion, setEditandoLocacion] = useState(false)
+  const [errorEditarLocacion, setErrorEditarLocacion] = useState(null)
+
+  const [reporteParaProceso, setReporteParaProceso] = useState(null)
+  const [valorProcesoEditado, setValorProcesoEditado] = useState('')
+  const [editandoProceso, setEditandoProceso] = useState(false)
+  const [errorEditarProceso, setErrorEditarProceso] = useState(null)
+
+  const [reporteParaComentario, setReporteParaComentario] = useState(null)
+  const [valorComentarioEditado, setValorComentarioEditado] = useState('')
+  const [editandoComentario, setEditandoComentario] = useState(false)
+  const [errorEditarComentario, setErrorEditarComentario] = useState(null)
 
   useEffect(() => {
     const cargarCatalogos = async () => {
@@ -392,6 +415,148 @@ export default function PantallaReportes({ usuario }) {
       setErrorEditarId(extraerMensajeError(err, 'No se pudo editar el ID de trabajo'))
     } finally {
       setEditandoId(false)
+    }
+  }
+
+  const abrirEditarProyecto = (proyectoActual, e) => {
+    e?.stopPropagation()
+    setErrorEditarProyecto(null)
+    setValorProyectoEditado(proyectoActual)
+    setProyectoParaEditar(proyectoActual)
+  }
+
+  const confirmarEditarProyecto = async () => {
+    if (!proyectoParaEditar) return
+    const nuevo = valorProyectoEditado.trim()
+    if (!nuevo) {
+      setErrorEditarProyecto('Escribe un proyecto')
+      return
+    }
+    if (nuevo === proyectoParaEditar) {
+      setErrorEditarProyecto('El nuevo proyecto debe ser distinto al actual')
+      return
+    }
+    setEditandoProyecto(true)
+    setErrorEditarProyecto(null)
+    try {
+      await editarProyecto(proyectoParaEditar, nuevo)
+      setReportes((prev) =>
+        prev.map((r) => (r.proyecto === proyectoParaEditar ? { ...r, proyecto: nuevo } : r))
+      )
+      setReporteAbierto((prev) =>
+        prev && prev.proyecto === proyectoParaEditar ? { ...prev, proyecto: nuevo } : prev
+      )
+      setProyectosSugeridos((prev) => {
+        const sinViejo = prev.filter((p) => p !== proyectoParaEditar)
+        return sinViejo.includes(nuevo) ? sinViejo : [nuevo, ...sinViejo]
+      })
+      if (filtrosAplicados.proyecto === proyectoParaEditar) {
+        setFiltros((prev) => ({ ...prev, proyecto: nuevo }))
+        setFiltrosAplicados((prev) => ({ ...prev, proyecto: nuevo }))
+      }
+      setProyectoParaEditar(null)
+    } catch (err) {
+      setErrorEditarProyecto(extraerMensajeError(err, 'No se pudo editar el proyecto'))
+    } finally {
+      setEditandoProyecto(false)
+    }
+  }
+
+  const abrirEditarLocacion = (locacionActual, e) => {
+    e?.stopPropagation()
+    setErrorEditarLocacion(null)
+    setValorLocacionEditada(locacionActual)
+    setLocacionParaEditar(locacionActual)
+  }
+
+  const confirmarEditarLocacion = async () => {
+    if (!locacionParaEditar) return
+    const nueva = valorLocacionEditada.trim()
+    if (!nueva) {
+      setErrorEditarLocacion('Escribe una locación')
+      return
+    }
+    if (nueva === locacionParaEditar) {
+      setErrorEditarLocacion('La nueva locación debe ser distinta a la actual')
+      return
+    }
+    setEditandoLocacion(true)
+    setErrorEditarLocacion(null)
+    try {
+      await editarLocacion(locacionParaEditar, nueva)
+      setReportes((prev) =>
+        prev.map((r) => (r.locacion === locacionParaEditar ? { ...r, locacion: nueva } : r))
+      )
+      setReporteAbierto((prev) =>
+        prev && prev.locacion === locacionParaEditar ? { ...prev, locacion: nueva } : prev
+      )
+      setLocacionesSugeridas((prev) => {
+        const sinVieja = prev.filter((l) => l !== locacionParaEditar)
+        return sinVieja.includes(nueva) ? sinVieja : [nueva, ...sinVieja]
+      })
+      if (filtrosAplicados.locacion === locacionParaEditar) {
+        setFiltros((prev) => ({ ...prev, locacion: nueva }))
+        setFiltrosAplicados((prev) => ({ ...prev, locacion: nueva }))
+      }
+      setLocacionParaEditar(null)
+    } catch (err) {
+      setErrorEditarLocacion(extraerMensajeError(err, 'No se pudo editar la locación'))
+    } finally {
+      setEditandoLocacion(false)
+    }
+  }
+
+  const abrirEditarProceso = (reporte, e) => {
+    e?.stopPropagation()
+    setErrorEditarProceso(null)
+    setValorProcesoEditado(reporte.proceso.id)
+    setReporteParaProceso(reporte)
+  }
+
+  const confirmarEditarProceso = async () => {
+    if (!reporteParaProceso) return
+    if (!valorProcesoEditado) {
+      setErrorEditarProceso('Elige un proceso')
+      return
+    }
+    setEditandoProceso(true)
+    setErrorEditarProceso(null)
+    try {
+      const actualizado = await editarReporte(reporteParaProceso.id, {
+        procesoId: valorProcesoEditado,
+      })
+      setReportes((prev) => prev.map((r) => (r.id === actualizado.id ? actualizado : r)))
+      if (reporteAbierto?.id === actualizado.id) setReporteAbierto(actualizado)
+      setReporteParaProceso(null)
+    } catch (err) {
+      setErrorEditarProceso(extraerMensajeError(err, 'No se pudo editar el proceso'))
+    } finally {
+      setEditandoProceso(false)
+    }
+  }
+
+  const abrirEditarComentario = (reporte, e) => {
+    e?.stopPropagation()
+    setErrorEditarComentario(null)
+    setValorComentarioEditado(reporte.comentario || '')
+    setReporteParaComentario(reporte)
+  }
+
+  const confirmarEditarComentario = async () => {
+    if (!reporteParaComentario) return
+    setEditandoComentario(true)
+    setErrorEditarComentario(null)
+    try {
+      const actualizado = await editarReporte(reporteParaComentario.id, {
+        comentario: valorComentarioEditado.trim(),
+      })
+      setReportes((prev) => prev.map((r) => (r.id === actualizado.id ? actualizado : r)))
+      if (reporteAbierto?.id === actualizado.id) setReporteAbierto(actualizado)
+      setReporteParaComentario(null)
+    } catch (err) {
+      setErrorEditarComentario(extraerMensajeError(err, 'No se pudo editar los hallazgos'))
+    } finally {
+      setEditandoComentario(false)
     }
   }
 
@@ -821,9 +986,29 @@ export default function PantallaReportes({ usuario }) {
                     onClick={() => setReporteAbierto(reporte)}
                     sx={{ cursor: 'pointer' }}
                   >
-                    <TableCell sx={{ fontWeight: 600 }}>{reporte.proyecto}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>
+                      <Stack direction="row" spacing={0} sx={{ alignItems: 'center' }}>
+                        <span>{reporte.proyecto}</span>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => abrirEditarProyecto(reporte.proyecto, e)}
+                        >
+                          <EditOutlinedIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Stack>
+                    </TableCell>
                     <TableCell>
-                      {reporte.locacion || (
+                      {reporte.locacion ? (
+                        <Stack direction="row" spacing={0} sx={{ alignItems: 'center' }}>
+                          <span>{reporte.locacion}</span>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => abrirEditarLocacion(reporte.locacion, e)}
+                          >
+                            <EditOutlinedIcon sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        </Stack>
+                      ) : (
                         <Button size="small" onClick={(e) => abrirAsignarLocacion(reporte, e)}>
                           Asignar Locación
                         </Button>
@@ -846,7 +1031,14 @@ export default function PantallaReportes({ usuario }) {
                         </Button>
                       )}
                     </TableCell>
-                    <TableCell>{reporte.proceso.nombre}</TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={0} sx={{ alignItems: 'center' }}>
+                        <span>{reporte.proceso.nombre}</span>
+                        <IconButton size="small" onClick={(e) => abrirEditarProceso(reporte, e)}>
+                          <EditOutlinedIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Stack>
+                    </TableCell>
                     <TableCell>
                       <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
                         <Avatar
@@ -880,17 +1072,27 @@ export default function PantallaReportes({ usuario }) {
                       />
                     </TableCell>
                     <TableCell sx={{ maxWidth: 280 }}>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {reporte.comentario || '—'}
-                      </Typography>
+                      <Stack direction="row" spacing={0} sx={{ alignItems: 'center' }}>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            flex: 1,
+                            minWidth: 0,
+                          }}
+                        >
+                          {reporte.comentario || '—'}
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => abrirEditarComentario(reporte, e)}
+                        >
+                          <EditOutlinedIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Stack>
                     </TableCell>
                     <TableCell align="right">
                       {esPropio && (
@@ -948,8 +1150,28 @@ export default function PantallaReportes({ usuario }) {
             <DialogContent dividers>
               <Stack spacing={0.5} sx={{ mb: 2 }}>
                 <Typography variant="body2" component="div">
+                  <strong>Proyecto:</strong>{' '}
+                  {reporteAbierto.proyecto}
+                  <IconButton
+                    size="small"
+                    onClick={(e) => abrirEditarProyecto(reporteAbierto.proyecto, e)}
+                  >
+                    <EditOutlinedIcon sx={{ fontSize: 14 }} />
+                  </IconButton>
+                </Typography>
+                <Typography variant="body2" component="div">
                   <strong>Locación:</strong>{' '}
-                  {reporteAbierto.locacion || (
+                  {reporteAbierto.locacion ? (
+                    <>
+                      {reporteAbierto.locacion}
+                      <IconButton
+                        size="small"
+                        onClick={(e) => abrirEditarLocacion(reporteAbierto.locacion, e)}
+                      >
+                        <EditOutlinedIcon sx={{ fontSize: 14 }} />
+                      </IconButton>
+                    </>
+                  ) : (
                     <Button size="small" onClick={(e) => abrirAsignarLocacion(reporteAbierto, e)}>
                       Asignar Locación
                     </Button>
@@ -973,6 +1195,16 @@ export default function PantallaReportes({ usuario }) {
                     </Button>
                   )}
                 </Typography>
+                <Typography variant="body2" component="div">
+                  <strong>Proceso:</strong>{' '}
+                  {reporteAbierto.proceso.nombre}
+                  <IconButton
+                    size="small"
+                    onClick={(e) => abrirEditarProceso(reporteAbierto, e)}
+                  >
+                    <EditOutlinedIcon sx={{ fontSize: 14 }} />
+                  </IconButton>
+                </Typography>
                 <Typography variant="body2">
                   <strong>Inspector:</strong> {reporteAbierto.inspector.nombre}
                 </Typography>
@@ -982,14 +1214,20 @@ export default function PantallaReportes({ usuario }) {
                 </Typography>
               </Stack>
 
-              {reporteAbierto.comentario && (
-                <Box sx={{ mb: 2 }}>
+              <Box sx={{ mb: 2 }}>
+                <Stack direction="row" spacing={0} sx={{ alignItems: 'center' }}>
                   <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600 }}>
                     Hallazgos
                   </Typography>
-                  <Typography variant="body2">{reporteAbierto.comentario}</Typography>
-                </Box>
-              )}
+                  <IconButton
+                    size="small"
+                    onClick={(e) => abrirEditarComentario(reporteAbierto, e)}
+                  >
+                    <EditOutlinedIcon sx={{ fontSize: 14 }} />
+                  </IconButton>
+                </Stack>
+                <Typography variant="body2">{reporteAbierto.comentario || '—'}</Typography>
+              </Box>
 
               <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600 }}>
                 Evidencia ({reporteAbierto.fotos.length})
@@ -1137,6 +1375,199 @@ export default function PantallaReportes({ usuario }) {
                 startIcon={editandoId ? <CircularProgress size={16} color="inherit" /> : null}
               >
                 {editandoId ? 'Guardando...' : 'Guardar'}
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      {/* EDITAR PROYECTO */}
+      <Dialog
+        open={Boolean(proyectoParaEditar)}
+        onClose={() => (editandoProyecto ? null : setProyectoParaEditar(null))}
+        maxWidth="xs"
+        fullWidth
+      >
+        {proyectoParaEditar && (
+          <>
+            <DialogTitle>Editar proyecto</DialogTitle>
+            <DialogContent>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Se actualizará en todos los reportes del proyecto{' '}
+                <strong>{proyectoParaEditar}</strong>.
+              </Typography>
+              <Autocomplete
+                freeSolo
+                options={proyectosSugeridos}
+                inputValue={valorProyectoEditado}
+                onInputChange={(e, valorNuevo) => setValorProyectoEditado(valorNuevo)}
+                renderInput={(params) => (
+                  <TextField {...params} label="Proyecto" size="small" autoFocus />
+                )}
+              />
+              {errorEditarProyecto && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {errorEditarProyecto}
+                </Alert>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button onClick={() => setProyectoParaEditar(null)} disabled={editandoProyecto}>
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                onClick={confirmarEditarProyecto}
+                disabled={editandoProyecto}
+                startIcon={editandoProyecto ? <CircularProgress size={16} color="inherit" /> : null}
+              >
+                {editandoProyecto ? 'Guardando...' : 'Guardar'}
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      {/* EDITAR LOCACIÓN */}
+      <Dialog
+        open={Boolean(locacionParaEditar)}
+        onClose={() => (editandoLocacion ? null : setLocacionParaEditar(null))}
+        maxWidth="xs"
+        fullWidth
+      >
+        {locacionParaEditar && (
+          <>
+            <DialogTitle>Editar locación</DialogTitle>
+            <DialogContent>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Se actualizará en todos los reportes que tienen la locación{' '}
+                <strong>{locacionParaEditar}</strong>.
+              </Typography>
+              <Autocomplete
+                freeSolo
+                options={locacionesSugeridas}
+                inputValue={valorLocacionEditada}
+                onInputChange={(e, valorNuevo) => setValorLocacionEditada(valorNuevo)}
+                renderInput={(params) => (
+                  <TextField {...params} label="Locación" size="small" autoFocus />
+                )}
+              />
+              {errorEditarLocacion && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {errorEditarLocacion}
+                </Alert>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button onClick={() => setLocacionParaEditar(null)} disabled={editandoLocacion}>
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                onClick={confirmarEditarLocacion}
+                disabled={editandoLocacion}
+                startIcon={editandoLocacion ? <CircularProgress size={16} color="inherit" /> : null}
+              >
+                {editandoLocacion ? 'Guardando...' : 'Guardar'}
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      {/* EDITAR PROCESO */}
+      <Dialog
+        open={Boolean(reporteParaProceso)}
+        onClose={() => (editandoProceso ? null : setReporteParaProceso(null))}
+        maxWidth="xs"
+        fullWidth
+      >
+        {reporteParaProceso && (
+          <>
+            <DialogTitle>Editar proceso</DialogTitle>
+            <DialogContent>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {reporteParaProceso.proyecto} · {reporteParaProceso.inspector.nombre}
+              </Typography>
+              <FormControl fullWidth size="small">
+                <InputLabel id="editar-proceso-label">Proceso</InputLabel>
+                <Select
+                  labelId="editar-proceso-label"
+                  label="Proceso"
+                  value={valorProcesoEditado}
+                  onChange={(e) => setValorProcesoEditado(e.target.value)}
+                  autoFocus
+                >
+                  {procesos.map((p) => (
+                    <MenuItem key={p.id} value={p.id}>
+                      {p.nombre}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              {errorEditarProceso && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {errorEditarProceso}
+                </Alert>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button onClick={() => setReporteParaProceso(null)} disabled={editandoProceso}>
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                onClick={confirmarEditarProceso}
+                disabled={editandoProceso}
+                startIcon={editandoProceso ? <CircularProgress size={16} color="inherit" /> : null}
+              >
+                {editandoProceso ? 'Guardando...' : 'Guardar'}
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      {/* EDITAR HALLAZGOS */}
+      <Dialog
+        open={Boolean(reporteParaComentario)}
+        onClose={() => (editandoComentario ? null : setReporteParaComentario(null))}
+        maxWidth="sm"
+        fullWidth
+      >
+        {reporteParaComentario && (
+          <>
+            <DialogTitle>Editar hallazgos</DialogTitle>
+            <DialogContent>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {reporteParaComentario.proyecto} · {reporteParaComentario.proceso.nombre}
+              </Typography>
+              <TextField
+                multiline
+                rows={4}
+                fullWidth
+                placeholder="Describe los hallazgos..."
+                value={valorComentarioEditado}
+                onChange={(e) => setValorComentarioEditado(e.target.value)}
+                autoFocus
+              />
+              {errorEditarComentario && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {errorEditarComentario}
+                </Alert>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button onClick={() => setReporteParaComentario(null)} disabled={editandoComentario}>
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                onClick={confirmarEditarComentario}
+                disabled={editandoComentario}
+                startIcon={editandoComentario ? <CircularProgress size={16} color="inherit" /> : null}
+              >
+                {editandoComentario ? 'Guardando...' : 'Guardar'}
               </Button>
             </DialogActions>
           </>
