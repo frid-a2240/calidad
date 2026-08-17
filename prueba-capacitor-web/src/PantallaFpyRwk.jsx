@@ -778,41 +778,39 @@ export default function PantallaFpyRwk() {
         </Card>
       ) : !proyectoAbierto ? (
         <>
-          <Card>
-            <CardContent sx={{ p: 2.5 }}>
-              <Typography
-                variant="overline"
-                color="text.secondary"
-                sx={{ fontWeight: 600, letterSpacing: 0.5 }}
-              >
-                Promedio vs meta (80%) por proyecto
-              </Typography>
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} sx={{ mt: 2 }}>
-                <Box sx={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
-                  <Box sx={{ minWidth: Math.max(320, promediosPorProyecto.length * 56) }}>
+          {promediosPorMes.length > 0 && (
+            <Card>
+              <CardContent sx={{ p: 2.5 }}>
+                <Typography
+                  variant="overline"
+                  color="text.secondary"
+                  sx={{ fontWeight: 600, letterSpacing: 0.5 }}
+                >
+                  Resumen mensual vs meta (80%)
+                </Typography>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} sx={{ mt: 2 }}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
                     <GraficoMetaMensual
                       titulo="% FPY (mayor a la meta es mejor)"
-                      datos={promediosPorProyecto}
+                      datos={promediosPorMes}
                       valorKey="fpy"
                       meta={META_FPY}
                       mejorSiMayor
                     />
                   </Box>
-                </Box>
-                <Box sx={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
-                  <Box sx={{ minWidth: Math.max(320, promediosPorProyecto.length * 56) }}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
                     <GraficoMetaMensual
                       titulo="% RWK (menor a la meta es mejor)"
-                      datos={promediosPorProyecto}
+                      datos={promediosPorMes}
                       valorKey="rwk"
                       meta={META_RWK}
                       mejorSiMayor={false}
                     />
                   </Box>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
 
           <Box
             sx={{
