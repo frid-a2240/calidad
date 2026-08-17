@@ -36,8 +36,7 @@ import {
   AddCircleOutlineOutlined as AddCircleOutlineIcon,
   EngineeringOutlined as EngineeringOutlinedIcon,
   QueryStatsOutlined as QueryStatsOutlinedIcon,
-  FolderOutlined as FolderOutlinedIcon,
-  ArrowBackOutlined as ArrowBackOutlinedIcon,
+  FilterAltOutlined as FilterAltOutlinedIcon,
 } from '@mui/icons-material'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import {
@@ -56,7 +55,6 @@ import {
   CAMPOS_DEFECTO,
   calcularFpyRwk,
   agruparPromediosPorFecha,
-  agruparPromediosPorMes,
   agruparPromediosPorProyecto,
   META_FPY,
   META_RWK,
@@ -266,7 +264,7 @@ export default function PantallaFpyRwk() {
   const [registroAEliminar, setRegistroAEliminar] = useState(null)
   const [eliminando, setEliminando] = useState(false)
   const [errorEliminar, setErrorEliminar] = useState(null)
-  const [proyectoAbierto, setProyectoAbierto] = useState(null)
+  const [filtroProyecto, setFiltroProyecto] = useState('')
 
   useEffect(() => {
     listarProyectos()
@@ -322,18 +320,18 @@ export default function PantallaFpyRwk() {
   }
 
   const calculado = useMemo(() => calcularFpyRwk(form), [form])
-  const promediosPorProyecto = useMemo(() => agruparPromediosPorProyecto(registros), [registros])
-  const registrosDelProyecto = useMemo(
-    () => (proyectoAbierto ? registros.filter((r) => r.proyecto === proyectoAbierto) : registros),
-    [registros, proyectoAbierto]
+  const registrosFiltrados = useMemo(() => {
+    const q = filtroProyecto.trim().toLowerCase()
+    if (!q) return registros
+    return registros.filter((r) => r.proyecto.toLowerCase().includes(q))
+  }, [registros, filtroProyecto])
+  const promediosPorProyecto = useMemo(
+    () => agruparPromediosPorProyecto(registrosFiltrados),
+    [registrosFiltrados]
   )
   const promediosPorFecha = useMemo(
-    () => agruparPromediosPorFecha(registrosDelProyecto),
-    [registrosDelProyecto]
-  )
-  const promediosPorMes = useMemo(
-    () => agruparPromediosPorMes(registrosDelProyecto),
-    [registrosDelProyecto]
+    () => agruparPromediosPorFecha(registrosFiltrados),
+    [registrosFiltrados]
   )
 
   const puedeGuardar =
@@ -461,10 +459,10 @@ export default function PantallaFpyRwk() {
             Calidad FPY / RWK
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {proyectoAbierto
-              ? `${proyectoAbierto} · ${registrosDelProyecto.length} ${
-                  registrosDelProyecto.length === 1 ? 'registro' : 'registros'
-                }`
+            {filtroProyecto.trim()
+              ? `${registrosFiltrados.length} ${
+                  registrosFiltrados.length === 1 ? 'registro' : 'registros'
+                } · filtro activo`
               : `${registros.length} ${registros.length === 1 ? 'registro capturado' : 'registros capturados'}`}
           </Typography>
         </Box>
@@ -763,6 +761,31 @@ export default function PantallaFpyRwk() {
 
       {error && <Alert severity="error">{error}</Alert>}
 
+      <Card>
+        <CardContent sx={{ p: 2.5 }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1.5 }}>
+            <FilterAltOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+            <Typography
+              variant="overline"
+              color="text.secondary"
+              sx={{ fontWeight: 700, letterSpacing: 0.5 }}
+            >
+              Filtro
+            </Typography>
+          </Stack>
+          <Autocomplete
+            freeSolo
+            options={proyectos}
+            value={filtroProyecto}
+            onInputChange={(e, valorNuevo) => setFiltroProyecto(valorNuevo || '')}
+            sx={{ maxWidth: 320 }}
+            renderInput={(params) => (
+              <TextField {...params} label="Proyecto" placeholder="Todos los proyectos" size="small" />
+            )}
+          />
+        </CardContent>
+      </Card>
+
       {cargando && registros.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6 }}>
           <CircularProgress />
@@ -776,110 +799,14 @@ export default function PantallaFpyRwk() {
             </Typography>
           </CardContent>
         </Card>
-      ) : !proyectoAbierto ? (
-        <>
-          {promediosPorMes.length > 0 && (
-            <Card>
-              <CardContent sx={{ p: 2.5 }}>
-                <Typography
-                  variant="overline"
-                  color="text.secondary"
-                  sx={{ fontWeight: 600, letterSpacing: 0.5 }}
-                >
-                  Resumen mensual vs meta (80%)
-                </Typography>
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} sx={{ mt: 2 }}>
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <GraficoMetaMensual
-                      titulo="% FPY (mayor a la meta es mejor)"
-                      datos={promediosPorMes}
-                      valorKey="fpy"
-                      meta={META_FPY}
-                      mejorSiMayor
-                    />
-                  </Box>
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <GraficoMetaMensual
-                      titulo="% RWK (menor a la meta es mejor)"
-                      datos={promediosPorMes}
-                      valorKey="rwk"
-                      meta={META_RWK}
-                      mejorSiMayor={false}
-                    />
-                  </Box>
-                </Stack>
-              </CardContent>
-            </Card>
-          )}
-
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' },
-              gap: 2,
-            }}
-          >
-            {promediosPorProyecto.map((p) => (
-              <Card key={p.clave} onClick={() => setProyectoAbierto(p.clave)} sx={{ cursor: 'pointer' }}>
-                <CardContent sx={{ p: 2.5 }}>
-                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 1.5 }}>
-                    <Box
-                      sx={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 2,
-                        bgcolor: 'secondary.main',
-                        color: 'white',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <FolderOutlinedIcon />
-                    </Box>
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ fontWeight: 700 }} noWrap>
-                        {p.label}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" noWrap>
-                        {p.total} {p.total === 1 ? 'registro' : 'registros'}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                  <Stack direction="row" spacing={1}>
-                    <Chip
-                      size="small"
-                      label={`FPY ${fmtPctTabla(p.fpy)}`}
-                      color={p.fpy === null ? 'default' : p.fpy >= META_FPY ? 'success' : 'error'}
-                    />
-                    <Chip
-                      size="small"
-                      label={`RWK ${fmtPctTabla(p.rwk)}`}
-                      color={p.rwk === null ? 'default' : p.rwk <= META_RWK ? 'success' : 'error'}
-                    />
-                  </Stack>
-                </CardContent>
-              </Card>
-            ))}
-          </Box>
-        </>
       ) : (
         <>
-          <Button
-            size="small"
-            startIcon={<ArrowBackOutlinedIcon fontSize="small" />}
-            onClick={() => setProyectoAbierto(null)}
-          >
-            Volver a proyectos
-          </Button>
-
-          {registrosDelProyecto.length === 0 ? (
+          {registrosFiltrados.length === 0 ? (
             <Card>
               <CardContent sx={{ textAlign: 'center', py: 7 }}>
                 <QueryStatsOutlinedIcon sx={{ fontSize: 44, color: 'text.disabled', mb: 1 }} />
                 <Typography variant="body1" color="text.secondary">
-                  No hay registros en este proyecto
+                  No hay registros con ese proyecto
                 </Typography>
               </CardContent>
             </Card>
@@ -943,7 +870,7 @@ export default function PantallaFpyRwk() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {registrosDelProyecto.map((registro) => (
+                  {registrosFiltrados.map((registro) => (
                     <TableRow key={registro.id} hover>
                       <TableCell>{registro.fecha}</TableCell>
                       <TableCell>{registro.nombre_trabajador}</TableCell>
@@ -1012,7 +939,7 @@ export default function PantallaFpyRwk() {
             </>
           )}
 
-          {promediosPorMes.length > 0 && (
+          {promediosPorProyecto.length > 0 && (
             <Card>
               <CardContent sx={{ p: 2.5 }}>
                 <Typography
@@ -1020,26 +947,30 @@ export default function PantallaFpyRwk() {
                   color="text.secondary"
                   sx={{ fontWeight: 600, letterSpacing: 0.5 }}
                 >
-                  Resumen mensual vs meta (80%)
+                  Resumen por proyecto vs meta (80%)
                 </Typography>
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} sx={{ mt: 2 }}>
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <GraficoMetaMensual
-                      titulo="% FPY (mayor a la meta es mejor)"
-                      datos={promediosPorMes}
-                      valorKey="fpy"
-                      meta={META_FPY}
-                      mejorSiMayor
-                    />
+                  <Box sx={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
+                    <Box sx={{ minWidth: Math.max(320, promediosPorProyecto.length * 56) }}>
+                      <GraficoMetaMensual
+                        titulo="% FPY (mayor a la meta es mejor)"
+                        datos={promediosPorProyecto}
+                        valorKey="fpy"
+                        meta={META_FPY}
+                        mejorSiMayor
+                      />
+                    </Box>
                   </Box>
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <GraficoMetaMensual
-                      titulo="% RWK (menor a la meta es mejor)"
-                      datos={promediosPorMes}
-                      valorKey="rwk"
-                      meta={META_RWK}
-                      mejorSiMayor={false}
-                    />
+                  <Box sx={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
+                    <Box sx={{ minWidth: Math.max(320, promediosPorProyecto.length * 56) }}>
+                      <GraficoMetaMensual
+                        titulo="% RWK (menor a la meta es mejor)"
+                        datos={promediosPorProyecto}
+                        valorKey="rwk"
+                        meta={META_RWK}
+                        mejorSiMayor={false}
+                      />
+                    </Box>
                   </Box>
                 </Stack>
               </CardContent>
