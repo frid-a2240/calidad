@@ -36,6 +36,8 @@ import {
   AddCircleOutlineOutlined as AddCircleOutlineIcon,
   EngineeringOutlined as EngineeringOutlinedIcon,
   QueryStatsOutlined as QueryStatsOutlinedIcon,
+  FolderOutlined as FolderOutlinedIcon,
+  ArrowBackOutlined as ArrowBackOutlinedIcon,
 } from '@mui/icons-material'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import {
@@ -55,6 +57,7 @@ import {
   calcularFpyRwk,
   agruparPromediosPorFecha,
   agruparPromediosPorMes,
+  agruparPromediosPorProyecto,
   META_FPY,
   META_RWK,
 } from './calculosFpyRwk'
@@ -263,6 +266,7 @@ export default function PantallaFpyRwk() {
   const [registroAEliminar, setRegistroAEliminar] = useState(null)
   const [eliminando, setEliminando] = useState(false)
   const [errorEliminar, setErrorEliminar] = useState(null)
+  const [proyectoAbierto, setProyectoAbierto] = useState(null)
 
   useEffect(() => {
     listarProyectos()
@@ -318,8 +322,19 @@ export default function PantallaFpyRwk() {
   }
 
   const calculado = useMemo(() => calcularFpyRwk(form), [form])
-  const promediosPorFecha = useMemo(() => agruparPromediosPorFecha(registros), [registros])
-  const promediosPorMes = useMemo(() => agruparPromediosPorMes(registros), [registros])
+  const promediosPorProyecto = useMemo(() => agruparPromediosPorProyecto(registros), [registros])
+  const registrosDelProyecto = useMemo(
+    () => (proyectoAbierto ? registros.filter((r) => r.proyecto === proyectoAbierto) : registros),
+    [registros, proyectoAbierto]
+  )
+  const promediosPorFecha = useMemo(
+    () => agruparPromediosPorFecha(registrosDelProyecto),
+    [registrosDelProyecto]
+  )
+  const promediosPorMes = useMemo(
+    () => agruparPromediosPorMes(registrosDelProyecto),
+    [registrosDelProyecto]
+  )
 
   const puedeGuardar =
     form.nombre_trabajador.trim() &&
@@ -446,7 +461,11 @@ export default function PantallaFpyRwk() {
             Calidad FPY / RWK
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {registros.length} {registros.length === 1 ? 'registro capturado' : 'registros capturados'}
+            {proyectoAbierto
+              ? `${proyectoAbierto} · ${registrosDelProyecto.length} ${
+                  registrosDelProyecto.length === 1 ? 'registro' : 'registros'
+                }`
+              : `${registros.length} ${registros.length === 1 ? 'registro capturado' : 'registros capturados'}`}
           </Typography>
         </Box>
       </Stack>
@@ -757,167 +776,278 @@ export default function PantallaFpyRwk() {
             </Typography>
           </CardContent>
         </Card>
-      ) : (
-        <TableContainer component={Paper} variant="outlined" sx={{ maxWidth: '100%', overflowX: 'auto' }}>
-          <Table size="small" sx={{ whiteSpace: 'nowrap' }}>
-            <TableHead>
-              <TableRow>
-                <TableCell rowSpan={2}>Fecha</TableCell>
-                <TableCell rowSpan={2}>Trabajador</TableCell>
-                <TableCell rowSpan={2}>Puesto</TableCell>
-                <TableCell rowSpan={2}>Proyecto</TableCell>
-                <TableCell rowSpan={2}>ID de trabajo</TableCell>
-                <TableCell rowSpan={2}>Tipo de trabajo</TableCell>
-                <TableCell rowSpan={2}>Posición</TableCell>
-                <TableCell rowSpan={2} align="right">
-                  Área (m)
-                </TableCell>
-                <TableCell rowSpan={2}>Supervisor a cargo</TableCell>
-                {ETAPAS.map((etapa) => (
-                  <TableCell
-                    key={etapa.id}
-                    colSpan={4}
-                    align="center"
-                    sx={{ bgcolor: etapa.color.bgHeader, color: etapa.color.text, fontWeight: 700 }}
-                  >
-                    {etapa.titulo}
-                  </TableCell>
-                ))}
-                <TableCell rowSpan={2} align="right" />
-              </TableRow>
-              <TableRow>
-                {ETAPAS.map((etapa) => (
-                  <Fragment key={etapa.id}>
-                    <TableCell
-                      align="right"
-                      sx={{ bgcolor: etapa.color.bgHeader, color: etapa.color.text }}
-                    >
-                      RWK (m)
-                    </TableCell>
-                    <TableCell
-                      align="right"
-                      sx={{ bgcolor: etapa.color.bgHeader, color: etapa.color.text }}
-                    >
-                      Aceptación (m)
-                    </TableCell>
-                    <TableCell
-                      align="right"
-                      sx={{ bgcolor: etapa.color.bgHeader, color: etapa.color.text }}
-                    >
-                      % RWK
-                    </TableCell>
-                    <TableCell
-                      align="right"
-                      sx={{ bgcolor: etapa.color.bgHeader, color: etapa.color.text }}
-                    >
-                      % FPY
-                    </TableCell>
-                  </Fragment>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {registros.map((registro) => (
-                <TableRow key={registro.id} hover>
-                  <TableCell>{registro.fecha}</TableCell>
-                  <TableCell>{registro.nombre_trabajador}</TableCell>
-                  <TableCell>{registro.puesto}</TableCell>
-                  <TableCell>{registro.proyecto}</TableCell>
-                  <TableCell>{registro.id_trabajo || '—'}</TableCell>
-                  <TableCell>{registro.tipo_trabajo}</TableCell>
-                  <TableCell>{registro.posicion || '—'}</TableCell>
-                  <TableCell align="right">{registro.area_metros}</TableCell>
-                  <TableCell>{registro.supervisor || 'SN'}</TableCell>
-                  {ETAPAS.map((etapa) => (
-                    <Fragment key={etapa.id}>
-                      <TableCell align="right" sx={{ bgcolor: etapa.color.bg }}>
-                        {fmtMetros(registro[`${etapa.id}_rwk`])}
-                      </TableCell>
-                      <TableCell align="right" sx={{ bgcolor: etapa.color.bg }}>
-                        {fmtMetros(registro[`${etapa.id}_aceptacion`])}
-                      </TableCell>
-                      <TableCell align="right" sx={{ bgcolor: etapa.color.bg }}>
-                        {fmtPctTabla(registro[`${etapa.id}_pct_rwk`])}
-                      </TableCell>
-                      <TableCell align="right" sx={{ bgcolor: etapa.color.bg }}>
-                        {fmtPctTabla(registro[`${etapa.id}_pct_fpy`])}
-                      </TableCell>
-                    </Fragment>
-                  ))}
-                  <TableCell align="right">
-                    <IconButton size="small" onClick={() => editar(registro)}>
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        setErrorEliminar(null)
-                        setRegistroAEliminar(registro)
+      ) : !proyectoAbierto ? (
+        <>
+          <Card>
+            <CardContent sx={{ p: 2.5 }}>
+              <Typography
+                variant="overline"
+                color="text.secondary"
+                sx={{ fontWeight: 600, letterSpacing: 0.5 }}
+              >
+                Promedio vs meta (80%) por proyecto
+              </Typography>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} sx={{ mt: 2 }}>
+                <Box sx={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
+                  <Box sx={{ minWidth: Math.max(320, promediosPorProyecto.length * 56) }}>
+                    <GraficoMetaMensual
+                      titulo="% FPY (mayor a la meta es mejor)"
+                      datos={promediosPorProyecto}
+                      valorKey="fpy"
+                      meta={META_FPY}
+                      mejorSiMayor
+                    />
+                  </Box>
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
+                  <Box sx={{ minWidth: Math.max(320, promediosPorProyecto.length * 56) }}>
+                    <GraficoMetaMensual
+                      titulo="% RWK (menor a la meta es mejor)"
+                      datos={promediosPorProyecto}
+                      valorKey="rwk"
+                      meta={META_RWK}
+                      mejorSiMayor={false}
+                    />
+                  </Box>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' },
+              gap: 2,
+            }}
+          >
+            {promediosPorProyecto.map((p) => (
+              <Card key={p.clave} onClick={() => setProyectoAbierto(p.clave)} sx={{ cursor: 'pointer' }}>
+                <CardContent sx={{ p: 2.5 }}>
+                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 1.5 }}>
+                    <Box
+                      sx={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 2,
+                        bgcolor: 'secondary.main',
+                        color: 'white',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
                       }}
                     >
-                      <DeleteOutlineIcon fontSize="small" color="error" />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-
-      {promediosPorFecha.length > 0 && (
-        <>
-          <TablaPromedioPorFecha
-            titulo="Promedio de % RWK por fecha"
-            etiquetaColumna="% RWK"
-            datos={promediosPorFecha}
-            sufijo="rwk"
-            meta={META_RWK}
-            mejorSiMayor={false}
-          />
-          <TablaPromedioPorFecha
-            titulo="Promedio de % FPY por fecha"
-            etiquetaColumna="% FPY"
-            datos={promediosPorFecha}
-            sufijo="fpy"
-            meta={META_FPY}
-            mejorSiMayor
-          />
+                      <FolderOutlinedIcon />
+                    </Box>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography sx={{ fontWeight: 700 }} noWrap>
+                        {p.label}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" noWrap>
+                        {p.total} {p.total === 1 ? 'registro' : 'registros'}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Stack direction="row" spacing={1}>
+                    <Chip
+                      size="small"
+                      label={`FPY ${fmtPctTabla(p.fpy)}`}
+                      color={p.fpy === null ? 'default' : p.fpy >= META_FPY ? 'success' : 'error'}
+                    />
+                    <Chip
+                      size="small"
+                      label={`RWK ${fmtPctTabla(p.rwk)}`}
+                      color={p.rwk === null ? 'default' : p.rwk <= META_RWK ? 'success' : 'error'}
+                    />
+                  </Stack>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
         </>
-      )}
+      ) : (
+        <>
+          <Button
+            size="small"
+            startIcon={<ArrowBackOutlinedIcon fontSize="small" />}
+            onClick={() => setProyectoAbierto(null)}
+          >
+            Volver a proyectos
+          </Button>
 
-      {promediosPorMes.length > 0 && (
-        <Card>
-          <CardContent sx={{ p: 2.5 }}>
-            <Typography
-              variant="overline"
-              color="text.secondary"
-              sx={{ fontWeight: 600, letterSpacing: 0.5 }}
-            >
-              Resumen mensual vs meta (80%)
-            </Typography>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} sx={{ mt: 2 }}>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <GraficoMetaMensual
-                  titulo="% FPY (mayor a la meta es mejor)"
-                  datos={promediosPorMes}
-                  valorKey="fpy"
-                  meta={META_FPY}
-                  mejorSiMayor
-                />
-              </Box>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <GraficoMetaMensual
-                  titulo="% RWK (menor a la meta es mejor)"
-                  datos={promediosPorMes}
-                  valorKey="rwk"
-                  meta={META_RWK}
-                  mejorSiMayor={false}
-                />
-              </Box>
-            </Stack>
-          </CardContent>
-        </Card>
+          {registrosDelProyecto.length === 0 ? (
+            <Card>
+              <CardContent sx={{ textAlign: 'center', py: 7 }}>
+                <QueryStatsOutlinedIcon sx={{ fontSize: 44, color: 'text.disabled', mb: 1 }} />
+                <Typography variant="body1" color="text.secondary">
+                  No hay registros en este proyecto
+                </Typography>
+              </CardContent>
+            </Card>
+          ) : (
+            <TableContainer component={Paper} variant="outlined" sx={{ maxWidth: '100%', overflowX: 'auto' }}>
+              <Table size="small" sx={{ whiteSpace: 'nowrap' }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell rowSpan={2}>Fecha</TableCell>
+                    <TableCell rowSpan={2}>Trabajador</TableCell>
+                    <TableCell rowSpan={2}>Puesto</TableCell>
+                    <TableCell rowSpan={2}>Proyecto</TableCell>
+                    <TableCell rowSpan={2}>ID de trabajo</TableCell>
+                    <TableCell rowSpan={2}>Tipo de trabajo</TableCell>
+                    <TableCell rowSpan={2}>Posición</TableCell>
+                    <TableCell rowSpan={2} align="right">
+                      Área (m)
+                    </TableCell>
+                    <TableCell rowSpan={2}>Supervisor a cargo</TableCell>
+                    {ETAPAS.map((etapa) => (
+                      <TableCell
+                        key={etapa.id}
+                        colSpan={4}
+                        align="center"
+                        sx={{ bgcolor: etapa.color.bgHeader, color: etapa.color.text, fontWeight: 700 }}
+                      >
+                        {etapa.titulo}
+                      </TableCell>
+                    ))}
+                    <TableCell rowSpan={2} align="right" />
+                  </TableRow>
+                  <TableRow>
+                    {ETAPAS.map((etapa) => (
+                      <Fragment key={etapa.id}>
+                        <TableCell
+                          align="right"
+                          sx={{ bgcolor: etapa.color.bgHeader, color: etapa.color.text }}
+                        >
+                          RWK (m)
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{ bgcolor: etapa.color.bgHeader, color: etapa.color.text }}
+                        >
+                          Aceptación (m)
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{ bgcolor: etapa.color.bgHeader, color: etapa.color.text }}
+                        >
+                          % RWK
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{ bgcolor: etapa.color.bgHeader, color: etapa.color.text }}
+                        >
+                          % FPY
+                        </TableCell>
+                      </Fragment>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {registrosDelProyecto.map((registro) => (
+                    <TableRow key={registro.id} hover>
+                      <TableCell>{registro.fecha}</TableCell>
+                      <TableCell>{registro.nombre_trabajador}</TableCell>
+                      <TableCell>{registro.puesto}</TableCell>
+                      <TableCell>{registro.proyecto}</TableCell>
+                      <TableCell>{registro.id_trabajo || '—'}</TableCell>
+                      <TableCell>{registro.tipo_trabajo}</TableCell>
+                      <TableCell>{registro.posicion || '—'}</TableCell>
+                      <TableCell align="right">{registro.area_metros}</TableCell>
+                      <TableCell>{registro.supervisor || 'SN'}</TableCell>
+                      {ETAPAS.map((etapa) => (
+                        <Fragment key={etapa.id}>
+                          <TableCell align="right" sx={{ bgcolor: etapa.color.bg }}>
+                            {fmtMetros(registro[`${etapa.id}_rwk`])}
+                          </TableCell>
+                          <TableCell align="right" sx={{ bgcolor: etapa.color.bg }}>
+                            {fmtMetros(registro[`${etapa.id}_aceptacion`])}
+                          </TableCell>
+                          <TableCell align="right" sx={{ bgcolor: etapa.color.bg }}>
+                            {fmtPctTabla(registro[`${etapa.id}_pct_rwk`])}
+                          </TableCell>
+                          <TableCell align="right" sx={{ bgcolor: etapa.color.bg }}>
+                            {fmtPctTabla(registro[`${etapa.id}_pct_fpy`])}
+                          </TableCell>
+                        </Fragment>
+                      ))}
+                      <TableCell align="right">
+                        <IconButton size="small" onClick={() => editar(registro)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setErrorEliminar(null)
+                            setRegistroAEliminar(registro)
+                          }}
+                        >
+                          <DeleteOutlineIcon fontSize="small" color="error" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+
+          {promediosPorFecha.length > 0 && (
+            <>
+              <TablaPromedioPorFecha
+                titulo="Promedio de % RWK por fecha"
+                etiquetaColumna="% RWK"
+                datos={promediosPorFecha}
+                sufijo="rwk"
+                meta={META_RWK}
+                mejorSiMayor={false}
+              />
+              <TablaPromedioPorFecha
+                titulo="Promedio de % FPY por fecha"
+                etiquetaColumna="% FPY"
+                datos={promediosPorFecha}
+                sufijo="fpy"
+                meta={META_FPY}
+                mejorSiMayor
+              />
+            </>
+          )}
+
+          {promediosPorMes.length > 0 && (
+            <Card>
+              <CardContent sx={{ p: 2.5 }}>
+                <Typography
+                  variant="overline"
+                  color="text.secondary"
+                  sx={{ fontWeight: 600, letterSpacing: 0.5 }}
+                >
+                  Resumen mensual vs meta (80%)
+                </Typography>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} sx={{ mt: 2 }}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <GraficoMetaMensual
+                      titulo="% FPY (mayor a la meta es mejor)"
+                      datos={promediosPorMes}
+                      valorKey="fpy"
+                      meta={META_FPY}
+                      mejorSiMayor
+                    />
+                  </Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <GraficoMetaMensual
+                      titulo="% RWK (menor a la meta es mejor)"
+                      datos={promediosPorMes}
+                      valorKey="rwk"
+                      meta={META_RWK}
+                      mejorSiMayor={false}
+                    />
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
 
       <Dialog

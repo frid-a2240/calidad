@@ -173,3 +173,32 @@ export function agruparPromediosPorMes(registros) {
       }
     })
 }
+
+// % FPY y % RWK promedio (todas las etapas combinadas) agrupado por
+// proyecto, para comparar proyectos entre sí de un vistazo. El proyecto es
+// obligatorio al capturar, así que no hace falta un cubo "sin proyecto".
+export function agruparPromediosPorProyecto(registros) {
+  const grupos = new Map()
+  for (const r of registros) {
+    if (!r.proyecto) continue
+    if (!grupos.has(r.proyecto)) grupos.set(r.proyecto, [])
+    grupos.get(r.proyecto).push(r)
+  }
+  return Array.from(grupos.entries())
+    .sort(([proyectoA], [proyectoB]) => proyectoA.localeCompare(proyectoB))
+    .map(([proyecto, items]) => {
+      const fpyPorRegistro = items
+        .map((r) => promedioEtapasRegistro(r, '_pct_fpy'))
+        .filter((v) => v !== null)
+      const rwkPorRegistro = items
+        .map((r) => promedioEtapasRegistro(r, '_pct_rwk'))
+        .filter((v) => v !== null)
+      return {
+        clave: proyecto,
+        label: proyecto,
+        total: items.length,
+        fpy: promedio(fpyPorRegistro),
+        rwk: promedio(rwkPorRegistro),
+      }
+    })
+}
