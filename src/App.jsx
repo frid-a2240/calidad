@@ -25,6 +25,7 @@ import {
   Logout as LogoutIcon,
 } from '@mui/icons-material'
 import { checkConexion, obtenerToken, borrarToken, obtenerPerfil } from './api'
+import { drenarCola } from './colaOffline'
 import PantallaLogin from './PantallaLogin'
 import PantallaReportar from './PantallaReportar'
 
@@ -43,7 +44,7 @@ function CargandoPantalla() {
   )
 }
 
-const APP_VERSION = '0.3.0'
+const APP_VERSION = '0.4.0'
 
 function App() {
   const [usuario, setUsuarioSesion] = useState(null)
@@ -51,11 +52,25 @@ function App() {
   const [conectado, setConectado] = useState(true)
   const [vista, setVista] = useState('reportar') // 'reportar' | 'historial' | 'calidad'
   const [refreshHistorial, setRefreshHistorial] = useState(0)
+  const [pendientesVersion, setPendientesVersion] = useState(0)
   const [menuAnchor, setMenuAnchor] = useState(null)
 
   useEffect(() => {
+    // null = todavía no se sabe (primer chequeo de la sesión). Cada vez que
+    // se confirma señal — al arrancar con conexión, o al recuperarla luego
+    // de estar sin nada — se intenta vaciar la cola de reportes guardados
+    // sin conexión.
+    let teniaConexion = null
     const check = async () => {
       const resultado = await checkConexion()
+      if (resultado.ok && teniaConexion !== true) {
+        const enviados = await drenarCola()
+        if (enviados > 0) {
+          setPendientesVersion((v) => v + 1)
+          setRefreshHistorial((v) => v + 1)
+        }
+      }
+      teniaConexion = resultado.ok
       setConectado(resultado.ok)
     }
     check()
@@ -248,6 +263,7 @@ function App() {
           <PantallaReportar
             conectado={conectado}
             onReporteEnviado={handleReporteEnviado}
+            pendientesVersion={pendientesVersion}
           />
         ) : vista === 'historial' ? (
           <Suspense fallback={<CargandoPantalla />}>

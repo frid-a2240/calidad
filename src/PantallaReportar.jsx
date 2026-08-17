@@ -20,11 +20,11 @@ import {
   Send as SendIcon,
   Close as CloseIcon,
   AddAPhoto as AddAPhotoIcon,
+  CloudQueueOutlined as CloudQueueOutlinedIcon,
 } from '@mui/icons-material'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  crearReporte,
   listarProcesos,
   listarProyectos,
   ocultarProyecto,
@@ -33,14 +33,21 @@ import {
   listarLocaciones,
   ocultarLocacion,
 } from './api'
+import {
+  enviarOEncolar,
+  listarPendientes,
+  guardarCatalogosCache,
+  obtenerCatalogosCache,
+} from './colaOffline'
 
-export default function PantallaReportar({ conectado, onReporteEnviado }) {
+export default function PantallaReportar({ conectado, onReporteEnviado, pendientesVersion }) {
   const [procesos, setProcesos] = useState([])
   const [proyectos, setProyectos] = useState([])
   const [idsTrabajo, setIdsTrabajo] = useState([])
   const [locaciones, setLocaciones] = useState([])
   const [cargandoCatalogos, setCargandoCatalogos] = useState(true)
   const [errorCatalogos, setErrorCatalogos] = useState(null)
+  const [pendientes, setPendientes] = useState([])
 
   const [proyecto, setProyecto] = useState('')
   const [idTrabajo, setIdTrabajo] = useState('')
@@ -67,16 +74,54 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
         setProyectos(datosProyectos)
         setIdsTrabajo(datosIdsTrabajo)
         setLocaciones(datosLocaciones)
+        guardarCatalogosCache({
+          procesos: datosProcesos,
+          proyectos: datosProyectos,
+          idsTrabajo: datosIdsTrabajo,
+          locaciones: datosLocaciones,
+        })
       } catch (err) {
-        setErrorCatalogos(
-          err.response?.data?.detail || 'No se pudo cargar el catálogo de procesos'
-        )
+        // Sin señal y sin nada guardado antes: no hay forma de mostrar el
+        // formulario (no sabemos qué procesos existen). Con algo en caché
+        // de una carga anterior, se usa eso para poder seguir capturando.
+        const cache = await obtenerCatalogosCache()
+        if (cache) {
+          setProcesos(cache.procesos)
+          setProyectos(cache.proyectos)
+          setIdsTrabajo(cache.idsTrabajo)
+          setLocaciones(cache.locaciones)
+        } else {
+          setErrorCatalogos(
+            err.response?.data?.detail || 'No se pudo cargar el catálogo de procesos'
+          )
+        }
       } finally {
         setCargandoCatalogos(false)
       }
     }
     cargar()
   }, [])
+
+  const cargarPendientes = useCallback(async () => {
+    setPendientes(await listarPendientes())
+  }, [])
+
+  const primerRender = useRef(true)
+
+  useEffect(() => {
+    const iniciar = async () => {
+      await cargarPendientes()
+    }
+    iniciar()
+    // pendientesVersion solo cambia cuando App.jsx logra vaciar la cola en
+    // segundo plano (nunca al montar ni por una acción del usuario) — es la
+    // señal de que ya se puede quitar el aviso de "sin señal" que quedó de
+    // cuando se guardó el reporte.
+    if (!primerRender.current) {
+      setMensaje(null)
+    }
+    primerRender.current = false
+  }, [cargarPendientes, pendientesVersion])
 
   const agregarFoto = async () => {
     try {
@@ -134,33 +179,43 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
     idTrabajo.trim().length > 0 &&
     locacion.trim().length > 0 &&
     procesoId &&
-    fotos.length > 0 &&
-    conectado
+    fotos.length > 0
 
   const enviar = async () => {
     if (!puedeEnviar) return
     setEnviando(true)
     setMensaje(null)
     try {
-      const resultado = await crearReporte({
-        proyecto: proyecto.trim(),
-        idTrabajo: idTrabajo.trim(),
-        locacion: locacion.trim(),
-        procesoId,
-        comentario,
-        fotosDataUrl: fotos,
-      })
-      setMensaje({ tipo: 'success', texto: 'Reporte enviado correctamente' })
-      setProyectos((prev) =>
-        prev.includes(resultado.proyecto) ? prev : [resultado.proyecto, ...prev]
+      const { enviado, resultado } = await enviarOEncolar(
+        {
+          proyecto: proyecto.trim(),
+          idTrabajo: idTrabajo.trim(),
+          locacion: locacion.trim(),
+          procesoId,
+          comentario,
+          fotosDataUrl: fotos,
+        },
+        conectado
       )
+      if (enviado) {
+        setMensaje({ tipo: 'success', texto: 'Reporte enviado correctamente' })
+        setProyectos((prev) =>
+          prev.includes(resultado.proyecto) ? prev : [resultado.proyecto, ...prev]
+        )
+        if (onReporteEnviado) onReporteEnviado()
+      } else {
+        setMensaje({
+          tipo: 'info',
+          texto: 'Sin señal: este reporte se enviará solo en cuanto haya conexión. Lo puedes ver abajo, en "Pendientes por enviar".',
+        })
+      }
       setProyecto('')
       setIdTrabajo('')
       setLocacion('')
       setProcesoId('')
       setFotos([])
       setComentario('')
-      if (onReporteEnviado) onReporteEnviado()
+      await cargarPendientes()
     } catch (error) {
       const detalle =
         error.response?.data?.detail || error.message || 'Error desconocido'
@@ -184,6 +239,55 @@ export default function PantallaReportar({ conectado, onReporteEnviado }) {
 
   return (
     <Stack spacing={2.5}>
+      {pendientes.length > 0 && (
+        <Card sx={{ borderLeft: '4px solid', borderColor: 'info.main' }}>
+          <CardContent sx={{ p: 2.5 }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
+              <CloudQueueOutlinedIcon sx={{ fontSize: 18, color: 'info.main' }} />
+              <Typography
+                variant="overline"
+                color="text.secondary"
+                sx={{ fontWeight: 700, letterSpacing: 0.5 }}
+              >
+                {pendientes.length} {pendientes.length === 1 ? 'pendiente por enviar' : 'pendientes por enviar'}
+              </Typography>
+            </Stack>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              {conectado
+                ? 'Ya hay señal — se están enviando solos.'
+                : 'Se guardaron en este celular y se enviarán solos en cuanto haya señal.'}
+            </Typography>
+            <Stack spacing={1}>
+              {pendientes.map((p) => (
+                <Box
+                  key={p.idLocal}
+                  sx={{
+                    p: 1.25,
+                    borderRadius: 1.5,
+                    bgcolor: 'action.hover',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 1,
+                  }}
+                >
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                      {p.proyecto} · {p.locacion}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" noWrap>
+                      {procesos.find((proc) => proc.id === p.procesoId)?.nombre || 'Proceso'} · ID{' '}
+                      {p.idTrabajo}
+                    </Typography>
+                  </Box>
+                  <Chip size="small" label={`${p.fotosDataUrl.length} foto${p.fotosDataUrl.length === 1 ? '' : 's'}`} />
+                </Box>
+              ))}
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardContent sx={{ p: 2.5 }}>
           <Typography
