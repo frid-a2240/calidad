@@ -136,6 +136,21 @@ export async function listarReportes() {
 }
 
 
+export async function agregarFotos(reporteId, fotosDataUrl) {
+  const formData = new FormData()
+  fotosDataUrl.forEach((dataUrl, index) => {
+    const blob = dataUrlToBlob(dataUrl)
+    const extension = blob.type.split('/')[1] || 'jpg'
+    formData.append('fotos', blob, `foto_${index}.${extension}`)
+  })
+
+  const response = await api.post(`/reportes/${reporteId}/fotos`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return response.data
+}
+
+
 export async function eliminarReporte(reporteId) {
   await api.delete(`/reportes/${reporteId}`)
 }

@@ -380,6 +380,48 @@ def editar_reporte(
     return _cargar_completo(db, reporte.id)
 
 
+@router.post("/{reporte_id}/fotos", response_model=ReporteOut)
+async def agregar_fotos(
+    reporte_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    usuario_actual: Usuario = Depends(get_current_user),
+):
+    """Agrega fotos a un reporte ya creado (ej. el inspector se dio cuenta
+    que le faltó una toma después de haberlo cerrado). Solo el inspector que
+    lo capturó puede agregarle fotos."""
+    reporte = db.query(ReporteCabecera).filter(ReporteCabecera.id == reporte_id).first()
+    if not reporte:
+        raise HTTPException(status_code=404, detail="Reporte no encontrado")
+    if reporte.inspector_id != usuario_actual.id:
+        raise HTTPException(
+            status_code=403, detail="Solo puedes agregar fotos a tus propios reportes"
+        )
+
+    form = await request.form()
+    archivos = [
+        valor
+        for clave, valor in form.multi_items()
+        if clave == "fotos" and getattr(valor, "filename", None)
+    ]
+    if not archivos:
+        raise HTTPException(status_code=400, detail="Agrega al menos una foto")
+
+    for archivo in archivos:
+        foto_ruta, foto_nombre = await _guardar_foto(archivo)
+        db.add(
+            ReporteFoto(
+                reporte_id=reporte.id,
+                foto_ruta=foto_ruta,
+                foto_nombre=foto_nombre,
+            )
+        )
+
+    db.commit()
+
+    return _cargar_completo(db, reporte.id)
+
+
 @router.delete("/{reporte_id}", status_code=status.HTTP_204_NO_CONTENT)
 def eliminar_reporte(
     reporte_id: int,

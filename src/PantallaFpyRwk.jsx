@@ -71,6 +71,7 @@ function fmtPct(valor) {
 }
 
 const PUESTOS_SUGERIDOS = ['Soldador', 'Pailero']
+const TIPOS_TRABAJO_SUGERIDOS = ['Armado y Pailería', 'Soldadura', 'Raíz', 'Soldadura Final']
 const POSICIONES = ['1G', '2G', '3G', '4G']
 
 function formularioVacio() {
@@ -356,7 +357,10 @@ export default function PantallaFpyRwk({ usuario }) {
   }, [])
 
   useEffect(() => {
-    cargarRegistros()
+    const iniciar = async () => {
+      await cargarRegistros()
+    }
+    iniciar()
   }, [cargarRegistros])
 
   const actualizarCampo = (campo, valor) => {
@@ -615,12 +619,13 @@ export default function PantallaFpyRwk({ usuario }) {
               }}
               renderInput={(params) => <TextField {...params} label="ID de trabajo" fullWidth />}
             />
-            <TextField
-              label="Tipo de trabajo"
-              fullWidth
+            <Autocomplete
+              freeSolo
+              options={TIPOS_TRABAJO_SUGERIDOS}
               value={form.tipo_trabajo}
-              onChange={(e) => actualizarCampo('tipo_trabajo', e.target.value)}
+              onInputChange={(e, valor) => actualizarCampo('tipo_trabajo', valor || '')}
               disabled={guardando}
+              renderInput={(params) => <TextField {...params} label="Tipo de trabajo" fullWidth />}
             />
             <FormControl fullWidth>
               <InputLabel id="posicion-label">Posición</InputLabel>

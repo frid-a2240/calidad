@@ -22,9 +22,13 @@ import {
   Close as CloseIcon,
   PhotoLibrary as PhotoLibraryIcon,
   DeleteOutlined as DeleteOutlineIcon,
+  AddAPhoto as AddAPhotoIcon,
+  AddPhotoAlternateOutlined as AddPhotoAlternateOutlinedIcon,
+  Save as SaveIcon,
 } from '@mui/icons-material'
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { useEffect, useState, useCallback } from 'react'
-import { eliminarReporte, listarReportes, urlFoto } from './api'
+import { eliminarReporte, listarReportes, agregarFotos, urlFoto } from './api'
 
 function formatearFecha(iso) {
   const fecha = new Date(iso)
@@ -72,6 +76,10 @@ export default function PantallaHistorial({ refreshTrigger, usuario }) {
   const [eliminando, setEliminando] = useState(false)
   const [errorEliminar, setErrorEliminar] = useState(null)
 
+  const [fotosNuevas, setFotosNuevas] = useState([])
+  const [guardandoFotos, setGuardandoFotos] = useState(false)
+  const [errorFotos, setErrorFotos] = useState(null)
+
   const cargar = useCallback(async () => {
     setCargando(true)
     setError(null)
@@ -91,6 +99,58 @@ export default function PantallaHistorial({ refreshTrigger, usuario }) {
     }
     iniciar()
   }, [cargar, refreshTrigger])
+
+  const abrirReporte = (reporte) => {
+    setFotosNuevas([])
+    setErrorFotos(null)
+    setReporteAbierto(reporte)
+  }
+
+  const cerrarReporte = () => {
+    if (guardandoFotos) return
+    setReporteAbierto(null)
+    setFotosNuevas([])
+    setErrorFotos(null)
+  }
+
+  const agregarFotoLocal = async (source) => {
+    try {
+      const image = await Camera.getPhoto({
+        quality: 80,
+        width: 1600,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source,
+      })
+      setFotosNuevas((prev) => [...prev, image.dataUrl])
+    } catch (error) {
+      if (!String(error).includes('cancelled')) {
+        setErrorFotos(
+          source === CameraSource.Camera ? 'No se pudo abrir la cámara' : 'No se pudo abrir la galería'
+        )
+      }
+    }
+  }
+
+  const quitarFotoNueva = (index) => {
+    setFotosNuevas((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const guardarFotosNuevas = async () => {
+    if (!reporteAbierto || fotosNuevas.length === 0) return
+    setGuardandoFotos(true)
+    setErrorFotos(null)
+    try {
+      const actualizado = await agregarFotos(reporteAbierto.id, fotosNuevas)
+      setReportes((prev) => prev.map((r) => (r.id === actualizado.id ? actualizado : r)))
+      setReporteAbierto(actualizado)
+      setFotosNuevas([])
+    } catch (err) {
+      setErrorFotos(err.response?.data?.detail || 'No se pudieron guardar las fotos')
+    } finally {
+      setGuardandoFotos(false)
+    }
+  }
 
   const confirmarEliminar = async () => {
     if (!reporteAEliminar) return
@@ -171,7 +231,7 @@ export default function PantallaHistorial({ refreshTrigger, usuario }) {
           return (
             <Card
               key={reporte.id}
-              onClick={() => setReporteAbierto(reporte)}
+              onClick={() => abrirReporte(reporte)}
               sx={{ cursor: 'pointer' }}
             >
               <CardContent sx={{ p: 2 }}>
@@ -262,7 +322,7 @@ export default function PantallaHistorial({ refreshTrigger, usuario }) {
 
       <Dialog
         open={Boolean(reporteAbierto)}
-        onClose={() => setReporteAbierto(null)}
+        onClose={cerrarReporte}
         maxWidth="sm"
         fullWidth
       >
@@ -285,7 +345,7 @@ export default function PantallaHistorial({ refreshTrigger, usuario }) {
                     <DeleteOutlineIcon fontSize="small" color="error" />
                   </IconButton>
                 )}
-                <IconButton onClick={() => setReporteAbierto(null)}>
+                <IconButton onClick={cerrarReporte} disabled={guardandoFotos}>
                   <CloseIcon fontSize="small" />
                 </IconButton>
               </Stack>
@@ -337,6 +397,120 @@ export default function PantallaHistorial({ refreshTrigger, usuario }) {
                   </Box>
                 ))}
               </Stack>
+
+              {reporteAbierto.inspector.id === usuario?.id && (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600 }}>
+                    Agregar más fotos
+                  </Typography>
+                  <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap', mt: 1 }}>
+                    {fotosNuevas.map((foto, index) => (
+                      <Box key={index} sx={{ position: 'relative', width: 88, height: 88 }}>
+                        <Box
+                          sx={{
+                            width: '100%',
+                            height: '100%',
+                            borderRadius: 1.5,
+                            overflow: 'hidden',
+                            border: '1px solid',
+                            borderColor: 'divider',
+                          }}
+                        >
+                          <img
+                            src={foto}
+                            alt=""
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                          />
+                        </Box>
+                        <IconButton
+                          size="small"
+                          onClick={() => quitarFotoNueva(index)}
+                          disabled={guardandoFotos}
+                          sx={{
+                            position: 'absolute',
+                            top: 2,
+                            right: 2,
+                            bgcolor: 'rgba(0,0,0,0.6)',
+                            color: 'white',
+                            p: 0.25,
+                            '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' },
+                          }}
+                        >
+                          <CloseIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Box>
+                    ))}
+
+                    <Box
+                      onClick={guardandoFotos ? undefined : () => agregarFotoLocal(CameraSource.Camera)}
+                      sx={{
+                        width: 88,
+                        height: 88,
+                        border: '2px dashed',
+                        borderColor: 'divider',
+                        borderRadius: 1.5,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: guardandoFotos ? 'not-allowed' : 'pointer',
+                        gap: 0.5,
+                      }}
+                    >
+                      <AddAPhotoIcon sx={{ fontSize: 22, color: 'text.secondary' }} />
+                      <Typography variant="caption" color="text.secondary">
+                        Tomar foto
+                      </Typography>
+                    </Box>
+
+                    <Box
+                      onClick={guardandoFotos ? undefined : () => agregarFotoLocal(CameraSource.Photos)}
+                      sx={{
+                        width: 88,
+                        height: 88,
+                        border: '2px dashed',
+                        borderColor: 'divider',
+                        borderRadius: 1.5,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: guardandoFotos ? 'not-allowed' : 'pointer',
+                        gap: 0.5,
+                      }}
+                    >
+                      <AddPhotoAlternateOutlinedIcon sx={{ fontSize: 22, color: 'text.secondary' }} />
+                      <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+                        Subir foto
+                      </Typography>
+                    </Box>
+                  </Stack>
+
+                  {errorFotos && (
+                    <Alert severity="error" sx={{ mt: 2 }}>
+                      {errorFotos}
+                    </Alert>
+                  )}
+
+                  {fotosNuevas.length > 0 && (
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      sx={{ mt: 2 }}
+                      onClick={guardarFotosNuevas}
+                      disabled={guardandoFotos}
+                      startIcon={
+                        guardandoFotos ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />
+                      }
+                    >
+                      {guardandoFotos
+                        ? 'Guardando...'
+                        : `Guardar ${fotosNuevas.length} ${fotosNuevas.length === 1 ? 'foto' : 'fotos'}`}
+                    </Button>
+                  )}
+                </>
+              )}
             </DialogContent>
           </>
         )}
