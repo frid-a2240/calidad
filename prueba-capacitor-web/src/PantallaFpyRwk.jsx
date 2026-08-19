@@ -69,6 +69,7 @@ function fmtPctTabla(valor) {
 }
 
 const PUESTOS_SUGERIDOS = ['Soldador', 'Pailero']
+const TIPOS_TRABAJO_SUGERIDOS = ['Armado y Pailería', 'Soldadura', 'Raíz', 'Soldadura Final']
 const POSICIONES = ['1G', '2G', '3G', '4G']
 
 function formularioVacio() {
@@ -601,13 +602,14 @@ export default function PantallaFpyRwk() {
                 <TextField {...params} label="ID de trabajo" size="small" />
               )}
             />
-            <TextField
-              label="Tipo de trabajo"
-              size="small"
-              sx={{ minWidth: 180 }}
+            <Autocomplete
+              freeSolo
+              options={TIPOS_TRABAJO_SUGERIDOS}
               value={form.tipo_trabajo}
-              onChange={(e) => actualizarCampo('tipo_trabajo', e.target.value)}
+              onInputChange={(e, valor) => actualizarCampo('tipo_trabajo', valor || '')}
+              sx={{ minWidth: 180 }}
               disabled={guardando}
+              renderInput={(params) => <TextField {...params} label="Tipo de trabajo" size="small" />}
             />
           </Stack>
 
