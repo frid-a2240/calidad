@@ -3,7 +3,7 @@
 // (funciona igual en web con localStorage, y en Android con SharedPreferences)
 // y se intentan enviar solos en cuanto vuelve la conexión.
 import { Preferences } from '@capacitor/preferences'
-import { crearReporte } from './api'
+import { crearReporte, agregarFotos } from './api'
 
 const CLAVE_COLA = 'reportes_pendientes'
 const CLAVE_CATALOGOS = 'catalogos_cache'
@@ -23,7 +23,28 @@ async function guardarCola(cola) {
 
 export async function encolarReporte(datos) {
   const cola = await listarPendientes()
-  const pendiente = { ...datos, idLocal: idLocal(), creadoEn: new Date().toISOString() }
+  const pendiente = {
+    tipo: 'nuevo',
+    ...datos,
+    idLocal: idLocal(),
+    creadoEn: new Date().toISOString(),
+  }
+  cola.push(pendiente)
+  await guardarCola(cola)
+  return pendiente
+}
+
+// A diferencia de un reporte nuevo, aquí no se guarda todo el reporte —
+// solo las fotos y a cuál reporte (que ya existe en el servidor) van.
+export async function encolarFotos(reporteId, fotosDataUrl) {
+  const cola = await listarPendientes()
+  const pendiente = {
+    tipo: 'fotos',
+    reporteId,
+    fotosDataUrl,
+    idLocal: idLocal(),
+    creadoEn: new Date().toISOString(),
+  }
   cola.push(pendiente)
   await guardarCola(cola)
   return pendiente
@@ -65,6 +86,24 @@ export async function enviarOEncolar(datos, conectado) {
   return { enviado: false, encolado: true }
 }
 
+/**
+ * Igual que enviarOEncolar, pero para agregar fotos a un reporte que ya
+ * existe en el servidor (ej. desde Historial, cuando al inspector le
+ * faltó una toma).
+ */
+export async function agregarFotosOEncolar(reporteId, fotosDataUrl, conectado) {
+  if (conectado) {
+    try {
+      const resultado = await agregarFotos(reporteId, fotosDataUrl)
+      return { enviado: true, resultado }
+    } catch (err) {
+      if (!esErrorDeRed(err)) throw err
+    }
+  }
+  await encolarFotos(reporteId, fotosDataUrl)
+  return { enviado: false, encolado: true }
+}
+
 let drenando = false
 
 /**
@@ -83,10 +122,15 @@ export async function drenarCola() {
     const cola = await listarPendientes()
     for (const pendiente of cola) {
       try {
-        const datos = { ...pendiente }
-        delete datos.idLocal
-        delete datos.creadoEn
-        await crearReporte(datos)
+        if (pendiente.tipo === 'fotos') {
+          await agregarFotos(pendiente.reporteId, pendiente.fotosDataUrl)
+        } else {
+          const datos = { ...pendiente }
+          delete datos.tipo
+          delete datos.idLocal
+          delete datos.creadoEn
+          await crearReporte(datos)
+        }
         await quitarPendiente(pendiente.idLocal)
         enviados += 1
       } catch {

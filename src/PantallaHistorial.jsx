@@ -25,10 +25,12 @@ import {
   AddAPhoto as AddAPhotoIcon,
   AddPhotoAlternateOutlined as AddPhotoAlternateOutlinedIcon,
   Save as SaveIcon,
+  CloudQueueOutlined as CloudQueueOutlinedIcon,
 } from '@mui/icons-material'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { useEffect, useState, useCallback } from 'react'
-import { eliminarReporte, listarReportes, agregarFotos, urlFoto } from './api'
+import { eliminarReporte, listarReportes, urlFoto } from './api'
+import { agregarFotosOEncolar, listarPendientes } from './colaOffline'
 
 function formatearFecha(iso) {
   const fecha = new Date(iso)
@@ -66,7 +68,7 @@ function coloresAvatar(nombre) {
   return paletas[Math.abs(hash) % paletas.length]
 }
 
-export default function PantallaHistorial({ refreshTrigger, usuario }) {
+export default function PantallaHistorial({ refreshTrigger, usuario, conectado, pendientesVersion }) {
   const [reportes, setReportes] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
@@ -79,6 +81,8 @@ export default function PantallaHistorial({ refreshTrigger, usuario }) {
   const [fotosNuevas, setFotosNuevas] = useState([])
   const [guardandoFotos, setGuardandoFotos] = useState(false)
   const [errorFotos, setErrorFotos] = useState(null)
+  const [mensajeFotos, setMensajeFotos] = useState(null)
+  const [pendientesFotos, setPendientesFotos] = useState([])
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -100,9 +104,25 @@ export default function PantallaHistorial({ refreshTrigger, usuario }) {
     iniciar()
   }, [cargar, refreshTrigger])
 
+  const cargarPendientesFotos = useCallback(async () => {
+    const cola = await listarPendientes()
+    setPendientesFotos(cola.filter((p) => p.tipo === 'fotos'))
+  }, [])
+
+  useEffect(() => {
+    const iniciar = async () => {
+      await cargarPendientesFotos()
+    }
+    iniciar()
+  }, [cargarPendientesFotos, pendientesVersion])
+
+  const fotosPendientesDe = (reporteId) =>
+    pendientesFotos.filter((p) => p.reporteId === reporteId).flatMap((p) => p.fotosDataUrl)
+
   const abrirReporte = (reporte) => {
     setFotosNuevas([])
     setErrorFotos(null)
+    setMensajeFotos(null)
     setReporteAbierto(reporte)
   }
 
@@ -111,6 +131,7 @@ export default function PantallaHistorial({ refreshTrigger, usuario }) {
     setReporteAbierto(null)
     setFotosNuevas([])
     setErrorFotos(null)
+    setMensajeFotos(null)
   }
 
   const agregarFotoLocal = async (source) => {
@@ -140,11 +161,21 @@ export default function PantallaHistorial({ refreshTrigger, usuario }) {
     if (!reporteAbierto || fotosNuevas.length === 0) return
     setGuardandoFotos(true)
     setErrorFotos(null)
+    setMensajeFotos(null)
     try {
-      const actualizado = await agregarFotos(reporteAbierto.id, fotosNuevas)
-      setReportes((prev) => prev.map((r) => (r.id === actualizado.id ? actualizado : r)))
-      setReporteAbierto(actualizado)
+      const { enviado, resultado } = await agregarFotosOEncolar(
+        reporteAbierto.id,
+        fotosNuevas,
+        conectado
+      )
+      if (enviado) {
+        setReportes((prev) => prev.map((r) => (r.id === resultado.id ? resultado : r)))
+        setReporteAbierto(resultado)
+      } else {
+        setMensajeFotos('Sin señal: estas fotos se subirán solas cuando haya señal.')
+      }
       setFotosNuevas([])
+      await cargarPendientesFotos()
     } catch (err) {
       setErrorFotos(err.response?.data?.detail || 'No se pudieron guardar las fotos')
     } finally {
@@ -227,6 +258,7 @@ export default function PantallaHistorial({ refreshTrigger, usuario }) {
         {reportes.map((reporte) => {
           const colores = coloresAvatar(reporte.inspector.nombre)
           const esPropio = reporte.inspector.id === usuario?.id
+          const pendientesDeEste = fotosPendientesDe(reporte.id).length
 
           return (
             <Card
@@ -246,6 +278,14 @@ export default function PantallaHistorial({ refreshTrigger, usuario }) {
                     </Typography>
                   </Box>
                   <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                    {pendientesDeEste > 0 && (
+                      <Chip
+                        size="small"
+                        color="info"
+                        icon={<CloudQueueOutlinedIcon sx={{ fontSize: 14 }} />}
+                        label={pendientesDeEste}
+                      />
+                    )}
                     <Chip
                       size="small"
                       icon={<PhotoLibraryIcon sx={{ fontSize: 14 }} />}
@@ -398,6 +438,42 @@ export default function PantallaHistorial({ refreshTrigger, usuario }) {
                 ))}
               </Stack>
 
+              {fotosPendientesDe(reporteAbierto.id).length > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+                    <CloudQueueOutlinedIcon sx={{ fontSize: 16, color: 'info.main' }} />
+                    <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600 }}>
+                      Pendientes de subir ({fotosPendientesDe(reporteAbierto.id).length})
+                    </Typography>
+                  </Stack>
+                  <Typography variant="caption" color="text.secondary">
+                    Guardadas en este celular, se suben solas en cuanto haya señal.
+                  </Typography>
+                  <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap', mt: 1 }}>
+                    {fotosPendientesDe(reporteAbierto.id).map((foto, index) => (
+                      <Box
+                        key={index}
+                        sx={{
+                          width: 88,
+                          height: 88,
+                          borderRadius: 1.5,
+                          overflow: 'hidden',
+                          border: '1px dashed',
+                          borderColor: 'info.main',
+                          opacity: 0.7,
+                        }}
+                      >
+                        <img
+                          src={foto}
+                          alt=""
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        />
+                      </Box>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+
               {reporteAbierto.inspector.id === usuario?.id && (
                 <>
                   <Divider sx={{ my: 2 }} />
@@ -490,6 +566,12 @@ export default function PantallaHistorial({ refreshTrigger, usuario }) {
                   {errorFotos && (
                     <Alert severity="error" sx={{ mt: 2 }}>
                       {errorFotos}
+                    </Alert>
+                  )}
+
+                  {mensajeFotos && (
+                    <Alert severity="info" sx={{ mt: 2 }}>
+                      {mensajeFotos}
                     </Alert>
                   )}
 

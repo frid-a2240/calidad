@@ -56,21 +56,23 @@ function App() {
   const [menuAnchor, setMenuAnchor] = useState(null)
 
   useEffect(() => {
-    // null = todavía no se sabe (primer chequeo de la sesión). Cada vez que
-    // se confirma señal — al arrancar con conexión, o al recuperarla luego
-    // de estar sin nada — se intenta vaciar la cola de reportes guardados
-    // sin conexión.
-    let teniaConexion = null
+    // Cada vez que hay señal se intenta vaciar la cola de reportes/fotos
+    // guardados sin conexión — sin importar si el chequeo anterior ya la
+    // había visto en línea. drenarCola() no hace nada si la cola está
+    // vacía, así que no cuesta nada intentarlo en cada chequeo (cada
+    // 15s); hacerlo así, en vez de solo al detectar la transición de
+    // "sin señal" a "con señal", evita que se quede algo pendiente sin
+    // enviar si la desconexión fue más corta que el intervalo entre
+    // chequeos.
     const check = async () => {
       const resultado = await checkConexion()
-      if (resultado.ok && teniaConexion !== true) {
+      if (resultado.ok) {
         const enviados = await drenarCola()
         if (enviados > 0) {
           setPendientesVersion((v) => v + 1)
           setRefreshHistorial((v) => v + 1)
         }
       }
-      teniaConexion = resultado.ok
       setConectado(resultado.ok)
     }
     check()
@@ -267,7 +269,12 @@ function App() {
           />
         ) : vista === 'historial' ? (
           <Suspense fallback={<CargandoPantalla />}>
-            <PantallaHistorial refreshTrigger={refreshHistorial} usuario={usuario} />
+            <PantallaHistorial
+              refreshTrigger={refreshHistorial}
+              usuario={usuario}
+              conectado={conectado}
+              pendientesVersion={pendientesVersion}
+            />
           </Suspense>
         ) : (
           <Suspense fallback={<CargandoPantalla />}>
