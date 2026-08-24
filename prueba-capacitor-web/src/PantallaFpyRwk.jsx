@@ -197,7 +197,16 @@ function GraficoMetaMensual({ titulo, datos, valorKey, meta, mejorSiMayor }) {
   )
 }
 
-function TablaPromedioPorFecha({ titulo, etiquetaColumna, datos, sufijo, meta, mejorSiMayor }) {
+function TablaPromedioPorEtapa({
+  titulo,
+  etiquetaColumna,
+  etiquetaFila = 'Fecha',
+  campoFila = 'fecha',
+  datos,
+  sufijo,
+  meta,
+  mejorSiMayor,
+}) {
   return (
     <Card>
       <CardContent sx={{ p: 2.5 }}>
@@ -212,7 +221,7 @@ function TablaPromedioPorFecha({ titulo, etiquetaColumna, datos, sufijo, meta, m
           <Table size="small" sx={{ whiteSpace: 'nowrap' }}>
             <TableHead>
               <TableRow>
-                <TableCell>Fecha</TableCell>
+                <TableCell>{etiquetaFila}</TableCell>
                 {ETAPAS.map((etapa) => (
                   <TableCell
                     key={etapa.id}
@@ -226,8 +235,8 @@ function TablaPromedioPorFecha({ titulo, etiquetaColumna, datos, sufijo, meta, m
             </TableHead>
             <TableBody>
               {datos.map((fila) => (
-                <TableRow key={fila.fecha} hover>
-                  <TableCell>{fila.fecha}</TableCell>
+                <TableRow key={fila[campoFila]} hover>
+                  <TableCell>{fila[campoFila]}</TableCell>
                   {ETAPAS.map((etapa) => {
                     const valor = fila[`${etapa.id}_${sufijo}`]
                     const enMeta = valor !== null && (mejorSiMayor ? valor >= meta : valor <= meta)
@@ -922,7 +931,7 @@ export default function PantallaFpyRwk() {
 
           {promediosPorFecha.length > 0 && (
             <>
-              <TablaPromedioPorFecha
+              <TablaPromedioPorEtapa
                 titulo="Promedio de % RWK por fecha"
                 etiquetaColumna="% RWK"
                 datos={promediosPorFecha}
@@ -930,7 +939,7 @@ export default function PantallaFpyRwk() {
                 meta={META_RWK}
                 mejorSiMayor={false}
               />
-              <TablaPromedioPorFecha
+              <TablaPromedioPorEtapa
                 titulo="Promedio de % FPY por fecha"
                 etiquetaColumna="% FPY"
                 datos={promediosPorFecha}
@@ -942,41 +951,63 @@ export default function PantallaFpyRwk() {
           )}
 
           {promediosPorProyecto.length > 0 && (
-            <Card>
-              <CardContent sx={{ p: 2.5 }}>
-                <Typography
-                  variant="overline"
-                  color="text.secondary"
-                  sx={{ fontWeight: 600, letterSpacing: 0.5 }}
-                >
-                  Resumen por proyecto vs meta (80%)
-                </Typography>
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} sx={{ mt: 2 }}>
-                  <Box sx={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
-                    <Box sx={{ minWidth: Math.max(320, promediosPorProyecto.length * 56) }}>
-                      <GraficoMetaMensual
-                        titulo="% FPY (mayor a la meta es mejor)"
-                        datos={promediosPorProyecto}
-                        valorKey="fpy"
-                        meta={META_FPY}
-                        mejorSiMayor
-                      />
+            <>
+              <Card>
+                <CardContent sx={{ p: 2.5 }}>
+                  <Typography
+                    variant="overline"
+                    color="text.secondary"
+                    sx={{ fontWeight: 600, letterSpacing: 0.5 }}
+                  >
+                    Resumen por proyecto vs meta (80%)
+                  </Typography>
+                  <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} sx={{ mt: 2 }}>
+                    <Box sx={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
+                      <Box sx={{ minWidth: Math.max(320, promediosPorProyecto.length * 56) }}>
+                        <GraficoMetaMensual
+                          titulo="% FPY (mayor a la meta es mejor)"
+                          datos={promediosPorProyecto}
+                          valorKey="fpy"
+                          meta={META_FPY}
+                          mejorSiMayor
+                        />
+                      </Box>
                     </Box>
-                  </Box>
-                  <Box sx={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
-                    <Box sx={{ minWidth: Math.max(320, promediosPorProyecto.length * 56) }}>
-                      <GraficoMetaMensual
-                        titulo="% RWK (menor a la meta es mejor)"
-                        datos={promediosPorProyecto}
-                        valorKey="rwk"
-                        meta={META_RWK}
-                        mejorSiMayor={false}
-                      />
+                    <Box sx={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
+                      <Box sx={{ minWidth: Math.max(320, promediosPorProyecto.length * 56) }}>
+                        <GraficoMetaMensual
+                          titulo="% RWK (menor a la meta es mejor)"
+                          datos={promediosPorProyecto}
+                          valorKey="rwk"
+                          meta={META_RWK}
+                          mejorSiMayor={false}
+                        />
+                      </Box>
                     </Box>
-                  </Box>
-                </Stack>
-              </CardContent>
-            </Card>
+                  </Stack>
+                </CardContent>
+              </Card>
+              <TablaPromedioPorEtapa
+                titulo="Promedio de % FPY por proyecto y proceso"
+                etiquetaColumna="% FPY"
+                etiquetaFila="Proyecto"
+                campoFila="proyecto"
+                datos={promediosPorProyecto}
+                sufijo="fpy"
+                meta={META_FPY}
+                mejorSiMayor
+              />
+              <TablaPromedioPorEtapa
+                titulo="Promedio de % RWK por proyecto y proceso"
+                etiquetaColumna="% RWK"
+                etiquetaFila="Proyecto"
+                campoFila="proyecto"
+                datos={promediosPorProyecto}
+                sufijo="rwk"
+                meta={META_RWK}
+                mejorSiMayor={false}
+              />
+            </>
           )}
         </>
       )}

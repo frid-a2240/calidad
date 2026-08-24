@@ -193,12 +193,24 @@ export function agruparPromediosPorProyecto(registros) {
       const rwkPorRegistro = items
         .map((r) => promedioEtapasRegistro(r, '_pct_rwk'))
         .filter((v) => v !== null)
-      return {
+      const fila = {
         clave: proyecto,
         label: proyecto,
+        proyecto,
         total: items.length,
         fpy: promedio(fpyPorRegistro),
         rwk: promedio(rwkPorRegistro),
       }
+      for (const etapa of ETAPAS) {
+        const valoresRwk = items
+          .map((r) => r[`${etapa.id}_pct_rwk`])
+          .filter((v) => v !== null && v !== undefined)
+        const valoresFpy = items
+          .map((r) => r[`${etapa.id}_pct_fpy`])
+          .filter((v) => v !== null && v !== undefined)
+        fila[`${etapa.id}_rwk`] = promedio(valoresRwk)
+        fila[`${etapa.id}_fpy`] = promedio(valoresFpy)
+      }
+      return fila
     })
 }
