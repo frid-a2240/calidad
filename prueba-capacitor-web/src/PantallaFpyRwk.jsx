@@ -105,6 +105,23 @@ function GraficoMetaMensual({ titulo, datos, valorKey, meta, mejorSiMayor }) {
     { clave: '__promedio__', label: 'Promedio', valor: promedioGeneral, esResumen: true },
   ]
 
+  return <BarrasMeta titulo={titulo} barras={barras} meta={meta} mejorSiMayor={mejorSiMayor} />
+}
+
+// Un bloque de barras (una por proceso: Armado, Soldadura inicial, Raíz,
+// Soldadura final) para un solo proyecto, para ver de un vistazo en qué
+// etapa se está quedando corto ese proyecto en particular.
+function GraficoPorProceso({ titulo, proyectoData, sufijo, meta, mejorSiMayor }) {
+  const barras = ETAPAS.map((etapa) => ({
+    clave: etapa.id,
+    label: etapa.titulo,
+    valor: proyectoData[`${etapa.id}_${sufijo}`],
+  }))
+
+  return <BarrasMeta titulo={titulo} barras={barras} meta={meta} mejorSiMayor={mejorSiMayor} />
+}
+
+function BarrasMeta({ titulo, barras, meta, mejorSiMayor }) {
   return (
     <Box>
       <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
@@ -987,26 +1004,43 @@ export default function PantallaFpyRwk() {
                   </Stack>
                 </CardContent>
               </Card>
-              <TablaPromedioPorEtapa
-                titulo="Promedio de % FPY por proyecto y proceso"
-                etiquetaColumna="% FPY"
-                etiquetaFila="Proyecto"
-                campoFila="proyecto"
-                datos={promediosPorProyecto}
-                sufijo="fpy"
-                meta={META_FPY}
-                mejorSiMayor
-              />
-              <TablaPromedioPorEtapa
-                titulo="Promedio de % RWK por proyecto y proceso"
-                etiquetaColumna="% RWK"
-                etiquetaFila="Proyecto"
-                campoFila="proyecto"
-                datos={promediosPorProyecto}
-                sufijo="rwk"
-                meta={META_RWK}
-                mejorSiMayor={false}
-              />
+              {promediosPorProyecto.map((p) => (
+                <Card key={p.clave}>
+                  <CardContent sx={{ p: 2.5 }}>
+                    <Typography
+                      variant="overline"
+                      color="text.secondary"
+                      sx={{ fontWeight: 600, letterSpacing: 0.5 }}
+                    >
+                      {p.proyecto} · % por proceso (Armado, Soldadura inicial, Raíz, Soldadura final)
+                    </Typography>
+                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} sx={{ mt: 2 }}>
+                      <Box sx={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
+                        <Box sx={{ minWidth: 320 }}>
+                          <GraficoPorProceso
+                            titulo="% FPY (mayor a la meta es mejor)"
+                            proyectoData={p}
+                            sufijo="fpy"
+                            meta={META_FPY}
+                            mejorSiMayor
+                          />
+                        </Box>
+                      </Box>
+                      <Box sx={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
+                        <Box sx={{ minWidth: 320 }}>
+                          <GraficoPorProceso
+                            titulo="% RWK (menor a la meta es mejor)"
+                            proyectoData={p}
+                            sufijo="rwk"
+                            meta={META_RWK}
+                            mejorSiMayor={false}
+                          />
+                        </Box>
+                      </Box>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              ))}
             </>
           )}
         </>
