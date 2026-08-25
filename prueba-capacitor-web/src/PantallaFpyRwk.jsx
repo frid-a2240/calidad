@@ -969,42 +969,44 @@ export default function PantallaFpyRwk() {
 
           {promediosPorProyecto.length > 0 && (
             <>
-              <Card>
-                <CardContent sx={{ p: 2.5 }}>
-                  <Typography
-                    variant="overline"
-                    color="text.secondary"
-                    sx={{ fontWeight: 600, letterSpacing: 0.5 }}
-                  >
-                    Resumen por proyecto vs meta (80%)
-                  </Typography>
-                  <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} sx={{ mt: 2 }}>
-                    <Box sx={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
-                      <Box sx={{ minWidth: Math.max(320, promediosPorProyecto.length * 56) }}>
-                        <GraficoMetaMensual
-                          titulo="% FPY (mayor a la meta es mejor)"
-                          datos={promediosPorProyecto}
-                          valorKey="fpy"
-                          meta={META_FPY}
-                          mejorSiMayor
-                        />
+              {!filtroProyecto.trim() && (
+                <Card>
+                  <CardContent sx={{ p: 2.5 }}>
+                    <Typography
+                      variant="overline"
+                      color="text.secondary"
+                      sx={{ fontWeight: 600, letterSpacing: 0.5 }}
+                    >
+                      Resumen por proyecto vs meta (80%)
+                    </Typography>
+                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} sx={{ mt: 2 }}>
+                      <Box sx={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
+                        <Box sx={{ minWidth: Math.max(320, promediosPorProyecto.length * 56) }}>
+                          <GraficoMetaMensual
+                            titulo="% FPY (mayor a la meta es mejor)"
+                            datos={promediosPorProyecto}
+                            valorKey="fpy"
+                            meta={META_FPY}
+                            mejorSiMayor
+                          />
+                        </Box>
                       </Box>
-                    </Box>
-                    <Box sx={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
-                      <Box sx={{ minWidth: Math.max(320, promediosPorProyecto.length * 56) }}>
-                        <GraficoMetaMensual
-                          titulo="% RWK (menor a la meta es mejor)"
-                          datos={promediosPorProyecto}
-                          valorKey="rwk"
-                          meta={META_RWK}
-                          mejorSiMayor={false}
-                        />
+                      <Box sx={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
+                        <Box sx={{ minWidth: Math.max(320, promediosPorProyecto.length * 56) }}>
+                          <GraficoMetaMensual
+                            titulo="% RWK (menor a la meta es mejor)"
+                            datos={promediosPorProyecto}
+                            valorKey="rwk"
+                            meta={META_RWK}
+                            mejorSiMayor={false}
+                          />
+                        </Box>
                       </Box>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
-              {promediosPorProyecto.map((p) => (
+                    </Stack>
+                  </CardContent>
+                </Card>
+              )}
+              {filtroProyecto.trim() && promediosPorProyecto.map((p) => (
                 <Card key={p.clave}>
                   <CardContent sx={{ p: 2.5 }}>
                     <Typography
