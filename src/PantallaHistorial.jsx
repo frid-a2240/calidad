@@ -229,7 +229,7 @@ export default function PantallaHistorial({ refreshTrigger, usuario, conectado, 
             Aún no hay reportes
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Crea el primero desde la pestaña Reportar
+            Crea el primero desde la pestaña Reportes
           </Typography>
         </CardContent>
       </Card>

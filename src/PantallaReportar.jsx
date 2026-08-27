@@ -15,6 +15,10 @@ import {
   FormControl,
   InputLabel,
   Autocomplete,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material'
 import {
   Send as SendIcon,
@@ -22,6 +26,9 @@ import {
   AddAPhoto as AddAPhotoIcon,
   AddPhotoAlternateOutlined as AddPhotoAlternateOutlinedIcon,
   CloudQueueOutlined as CloudQueueOutlinedIcon,
+  FolderOutlined as FolderOutlinedIcon,
+  AddCircleOutlineOutlined as AddCircleOutlineOutlinedIcon,
+  ArrowBackOutlined as ArrowBackOutlinedIcon,
 } from '@mui/icons-material'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -50,9 +57,14 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
   const [errorCatalogos, setErrorCatalogos] = useState(null)
   const [pendientes, setPendientes] = useState([])
 
+  const [vista, setVista] = useState('carpetas') // 'carpetas' | 'formulario'
+  const [locacionActiva, setLocacionActiva] = useState('')
+  const [dialogNuevaLocacionAbierto, setDialogNuevaLocacionAbierto] = useState(false)
+  const [nuevaLocacion, setNuevaLocacion] = useState('')
+  const [errorNuevaLocacion, setErrorNuevaLocacion] = useState(null)
+
   const [proyecto, setProyecto] = useState('')
   const [idTrabajo, setIdTrabajo] = useState('')
-  const [locacion, setLocacion] = useState('')
   const [procesoId, setProcesoId] = useState('')
   const [fotos, setFotos] = useState([])
   const [comentario, setComentario] = useState('')
@@ -171,7 +183,7 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
     }
   }
 
-  const borrarSugerenciaLocacion = async (nombre, e) => {
+  const borrarCarpeta = async (nombre, e) => {
     e.stopPropagation()
     setLocaciones((prev) => prev.filter((l) => l !== nombre))
     try {
@@ -181,10 +193,36 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
     }
   }
 
+  const abrirCarpeta = (nombreLocacion) => {
+    setLocacionActiva(nombreLocacion)
+    setMensaje(null)
+    setVista('formulario')
+  }
+
+  const volverACarpetas = () => {
+    setVista('carpetas')
+  }
+
+  const abrirDialogNuevaLocacion = () => {
+    setNuevaLocacion('')
+    setErrorNuevaLocacion(null)
+    setDialogNuevaLocacionAbierto(true)
+  }
+
+  const confirmarNuevaLocacion = () => {
+    const nombre = nuevaLocacion.trim()
+    if (!nombre) {
+      setErrorNuevaLocacion('Escribe un nombre para la carpeta')
+      return
+    }
+    setLocaciones((prev) => (prev.includes(nombre) ? prev : [nombre, ...prev]))
+    setDialogNuevaLocacionAbierto(false)
+    abrirCarpeta(nombre)
+  }
+
   const puedeEnviar =
     proyecto.trim().length > 0 &&
     idTrabajo.trim().length > 0 &&
-    locacion.trim().length > 0 &&
     procesoId &&
     fotos.length > 0
 
@@ -197,7 +235,7 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
         {
           proyecto: proyecto.trim(),
           idTrabajo: idTrabajo.trim(),
-          locacion: locacion.trim(),
+          locacion: locacionActiva,
           procesoId,
           comentario,
           fotosDataUrl: fotos,
@@ -216,9 +254,11 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
           texto: 'Sin señal: este reporte se enviará solo en cuanto haya conexión. Lo puedes ver abajo, en "Pendientes por enviar".',
         })
       }
+      // No se limpia la locación activa ni se vuelve a carpetas: es común
+      // seguir capturando varios reportes (distintos procesos) de la misma
+      // carpeta uno tras otro.
       setProyecto('')
       setIdTrabajo('')
-      setLocacion('')
       setProcesoId('')
       setFotos([])
       setComentario('')
@@ -244,56 +284,209 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
     return <Alert severity="error">{errorCatalogos}</Alert>
   }
 
-  return (
-    <Stack spacing={2.5}>
-      {pendientes.length > 0 && (
-        <Card sx={{ borderLeft: '4px solid', borderColor: 'info.main' }}>
+  const tarjetaPendientes = pendientes.length > 0 && (
+    <Card sx={{ borderLeft: '4px solid', borderColor: 'info.main' }}>
+      <CardContent sx={{ p: 2.5 }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
+          <CloudQueueOutlinedIcon sx={{ fontSize: 18, color: 'info.main' }} />
+          <Typography
+            variant="overline"
+            color="text.secondary"
+            sx={{ fontWeight: 700, letterSpacing: 0.5 }}
+          >
+            {pendientes.length} {pendientes.length === 1 ? 'pendiente por enviar' : 'pendientes por enviar'}
+          </Typography>
+        </Stack>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          {conectado
+            ? 'Ya hay señal — se están enviando solos.'
+            : 'Se guardaron en este celular y se enviarán solos en cuanto haya señal.'}
+        </Typography>
+        <Stack spacing={1}>
+          {pendientes.map((p) => (
+            <Box
+              key={p.idLocal}
+              sx={{
+                p: 1.25,
+                borderRadius: 1.5,
+                bgcolor: 'action.hover',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 1,
+              }}
+            >
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                  {p.proyecto} · {p.locacion}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" noWrap>
+                  {procesos.find((proc) => proc.id === p.procesoId)?.nombre || 'Proceso'} · ID{' '}
+                  {p.idTrabajo}
+                </Typography>
+              </Box>
+              <Chip size="small" label={`${p.fotosDataUrl.length} foto${p.fotosDataUrl.length === 1 ? '' : 's'}`} />
+            </Box>
+          ))}
+        </Stack>
+      </CardContent>
+    </Card>
+  )
+
+  if (vista === 'carpetas') {
+    return (
+      <Stack spacing={2.5}>
+        {tarjetaPendientes}
+
+        <Card>
           <CardContent sx={{ p: 2.5 }}>
-            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
-              <CloudQueueOutlinedIcon sx={{ fontSize: 18, color: 'info.main' }} />
-              <Typography
-                variant="overline"
-                color="text.secondary"
-                sx={{ fontWeight: 700, letterSpacing: 0.5 }}
-              >
-                {pendientes.length} {pendientes.length === 1 ? 'pendiente por enviar' : 'pendientes por enviar'}
-              </Typography>
-            </Stack>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              {conectado
-                ? 'Ya hay señal — se están enviando solos.'
-                : 'Se guardaron en este celular y se enviarán solos en cuanto haya señal.'}
+            <Typography
+              variant="overline"
+              color="text.secondary"
+              sx={{ fontWeight: 600, letterSpacing: 0.5 }}
+            >
+              Elige una carpeta para reportar
             </Typography>
-            <Stack spacing={1}>
-              {pendientes.map((p) => (
-                <Box
-                  key={p.idLocal}
-                  sx={{
-                    p: 1.25,
-                    borderRadius: 1.5,
-                    bgcolor: 'action.hover',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: 1,
-                  }}
-                >
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
-                      {p.proyecto} · {p.locacion}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" noWrap>
-                      {procesos.find((proc) => proc.id === p.procesoId)?.nombre || 'Proceso'} · ID{' '}
-                      {p.idTrabajo}
-                    </Typography>
-                  </Box>
-                  <Chip size="small" label={`${p.fotosDataUrl.length} foto${p.fotosDataUrl.length === 1 ? '' : 's'}`} />
-                </Box>
-              ))}
-            </Stack>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Cada carpeta es una locación. Al entrar, solo falta llenar proyecto, ID de trabajo y proceso.
+            </Typography>
           </CardContent>
         </Card>
-      )}
+
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+            gap: 1.5,
+          }}
+        >
+          {locaciones.map((nombreLocacion) => (
+            <Card
+              key={nombreLocacion}
+              onClick={() => abrirCarpeta(nombreLocacion)}
+              sx={{ cursor: 'pointer' }}
+            >
+              <CardContent
+                sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}
+              >
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 2,
+                    bgcolor: 'secondary.main',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <FolderOutlinedIcon />
+                </Box>
+                <Typography sx={{ fontWeight: 700, flex: 1, minWidth: 0 }} noWrap>
+                  {nombreLocacion}
+                </Typography>
+                <IconButton
+                  size="small"
+                  onClick={(e) => borrarCarpeta(nombreLocacion, e)}
+                >
+                  <CloseIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </CardContent>
+            </Card>
+          ))}
+
+          <Card
+            onClick={abrirDialogNuevaLocacion}
+            sx={{
+              cursor: 'pointer',
+              border: '2px dashed',
+              borderColor: 'divider',
+              boxShadow: 'none',
+              bgcolor: 'transparent',
+            }}
+          >
+            <CardContent sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 2,
+                  bgcolor: 'action.hover',
+                  color: 'text.secondary',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <AddCircleOutlineOutlinedIcon />
+              </Box>
+              <Typography sx={{ fontWeight: 700 }} color="text.secondary">
+                Agregar carpeta
+              </Typography>
+            </CardContent>
+          </Card>
+        </Box>
+
+        {/* NUEVA LOCACIÓN */}
+        <Dialog
+          open={dialogNuevaLocacionAbierto}
+          onClose={() => setDialogNuevaLocacionAbierto(false)}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle>Agregar carpeta</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Escribe el nombre de la locación (ej. Tanque 4). Se creará al guardar el primer reporte ahí.
+            </Typography>
+            <TextField
+              label="Locación"
+              placeholder="Ej. Tanque 4"
+              fullWidth
+              size="small"
+              autoFocus
+              value={nuevaLocacion}
+              onChange={(e) => setNuevaLocacion(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') confirmarNuevaLocacion()
+              }}
+            />
+            {errorNuevaLocacion && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {errorNuevaLocacion}
+              </Alert>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setDialogNuevaLocacionAbierto(false)}>Cancelar</Button>
+            <Button variant="contained" onClick={confirmarNuevaLocacion}>
+              Crear y reportar
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Stack>
+    )
+  }
+
+  return (
+    <Stack spacing={2.5}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+        <IconButton size="small" onClick={volverACarpetas} disabled={enviando}>
+          <ArrowBackOutlinedIcon fontSize="small" />
+        </IconButton>
+        <FolderOutlinedIcon sx={{ fontSize: 18, color: 'secondary.main' }} />
+        <Typography sx={{ fontWeight: 700, flex: 1, minWidth: 0 }} noWrap>
+          {locacionActiva}
+        </Typography>
+        <Button size="small" onClick={volverACarpetas} disabled={enviando}>
+          Cambiar carpeta
+        </Button>
+      </Stack>
+
+      {tarjetaPendientes}
 
       <Card>
         <CardContent sx={{ p: 2.5 }}>
@@ -387,51 +580,6 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
               }}
               renderInput={(params) => (
                 <TextField {...params} label="ID de trabajo" fullWidth size="small" />
-              )}
-            />
-            <Autocomplete
-              freeSolo
-              options={locaciones}
-              value={locacion}
-              onInputChange={(e, valorNuevo) => setLocacion(valorNuevo)}
-              disabled={enviando}
-              renderOption={(props, option) => {
-                const { key, ...optionProps } = props
-                return (
-                  <Box
-                    key={key}
-                    component="li"
-                    {...optionProps}
-                    sx={{
-                      display: 'flex !important',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {option}
-                    </Box>
-                    <IconButton
-                      size="small"
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                      }}
-                      onClick={(e) => borrarSugerenciaLocacion(option, e)}
-                    >
-                      <CloseIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
-                  </Box>
-                )
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Locación"
-                  placeholder="Ej. Tanque 4"
-                  fullWidth
-                  size="small"
-                />
               )}
             />
             <FormControl fullWidth size="small">

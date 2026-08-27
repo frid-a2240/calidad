@@ -186,7 +186,7 @@ function App() {
             </Typography>
             <Typography variant="caption" sx={{ opacity: 0.85 }}>
               {vista === 'reportar'
-                ? 'Nuevo reporte'
+                ? 'Reportes'
                 : vista === 'historial'
                   ? 'Historial de reportes'
                   : 'Calidad FPY / RWK'}
@@ -316,7 +316,7 @@ function App() {
           }}
         >
           <BottomNavigationAction
-            label="Reportar"
+            label="Reportes"
             value="reportar"
             icon={<AddIcon />}
           />
