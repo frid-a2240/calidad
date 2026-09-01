@@ -38,10 +38,10 @@ import {
   EngineeringOutlined as EngineeringOutlinedIcon,
   Refresh as RefreshIcon,
   ExpandMore as ExpandMoreIcon,
+  CloudQueueOutlined as CloudQueueOutlinedIcon,
 } from '@mui/icons-material'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  crearRegistroFpyRwk,
   actualizarRegistroFpyRwk,
   listarRegistrosFpyRwk,
   eliminarRegistroFpyRwk,
@@ -51,6 +51,7 @@ import {
   ocultarIdTrabajo,
   extraerMensajeError,
 } from './api'
+import { enviarRegistroFpyRwkOEncolar, listarPendientesFpyRwk } from './colaOffline'
 import {
   ETAPAS,
   CAMPOS_DEFECTO,
@@ -317,13 +318,14 @@ function TarjetaRegistro({ registro, esPropio, onAbrir, onEditar, onEliminar }) 
   )
 }
 
-export default function PantallaFpyRwk({ usuario }) {
+export default function PantallaFpyRwk({ usuario, conectado, pendientesVersion }) {
   const [proyectos, setProyectos] = useState([])
   const [idsTrabajo, setIdsTrabajo] = useState([])
   const [form, setForm] = useState(formularioVacio)
   const [editandoId, setEditandoId] = useState(null)
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState(null)
+  const [pendientes, setPendientes] = useState([])
 
   const [registros, setRegistros] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -362,6 +364,27 @@ export default function PantallaFpyRwk({ usuario }) {
     }
     iniciar()
   }, [cargarRegistros])
+
+  const cargarPendientes = useCallback(async () => {
+    setPendientes(await listarPendientesFpyRwk())
+  }, [])
+
+  const primerRender = useRef(true)
+
+  useEffect(() => {
+    const iniciar = async () => {
+      await cargarPendientes()
+    }
+    iniciar()
+    // pendientesVersion solo cambia cuando App.jsx logra vaciar la cola en
+    // segundo plano — es la señal de que ya se puede quitar el aviso de
+    // "sin señal" que quedó de cuando se guardó el registro.
+    if (!primerRender.current) {
+      setMensaje(null)
+      cargarRegistros()
+    }
+    primerRender.current = false
+  }, [cargarPendientes, cargarRegistros, pendientesVersion])
 
   const actualizarCampo = (campo, valor) => {
     setForm((prev) => ({ ...prev, [campo]: valor }))
@@ -450,23 +473,37 @@ export default function PantallaFpyRwk({ usuario }) {
         ),
       }
 
-      const resultado = editandoId
-        ? await actualizarRegistroFpyRwk(editandoId, payload)
-        : await crearRegistroFpyRwk(payload)
-
-      setMensaje({
-        tipo: 'success',
-        texto: editandoId
-          ? 'Registro actualizado — puedes seguir con la siguiente etapa'
-          : 'Registro guardado — puedes seguir con la siguiente etapa, o toca "Nuevo registro" para capturar otro',
-      })
-      setProyectos((prev) =>
-        prev.includes(resultado.proyecto) ? prev : [resultado.proyecto, ...prev]
-      )
-      // No se reinicia el formulario: se queda editando este mismo registro
-      // para poder ir llenando las demas etapas en pasos separados.
-      setEditandoId(resultado.id)
-      cargarRegistros()
+      if (editandoId) {
+        const resultado = await actualizarRegistroFpyRwk(editandoId, payload)
+        setMensaje({ tipo: 'success', texto: 'Registro actualizado' })
+        setProyectos((prev) =>
+          prev.includes(resultado.proyecto) ? prev : [resultado.proyecto, ...prev]
+        )
+        setEditandoId(resultado.id)
+        cargarRegistros()
+      } else {
+        const { enviado, resultado } = await enviarRegistroFpyRwkOEncolar(payload, conectado)
+        if (enviado) {
+          setMensaje({
+            tipo: 'success',
+            texto:
+              'Registro guardado — los campos se quedaron llenos, el siguiente "Guardar" crea uno nuevo (cambia el ID/tipo de trabajo o los valores que correspondan)',
+          })
+          setProyectos((prev) =>
+            prev.includes(resultado.proyecto) ? prev : [resultado.proyecto, ...prev]
+          )
+          cargarRegistros()
+        } else {
+          setMensaje({
+            tipo: 'info',
+            texto: 'Sin señal: este registro se enviará solo en cuanto haya conexión. Lo puedes ver abajo, en "Pendientes por enviar".',
+          })
+        }
+        await cargarPendientes()
+        // No se reinicia el formulario ni se marca como "editando": el
+        // siguiente "Guardar" siempre crea un registro nuevo, aunque el
+        // ID de trabajo se repita con un tipo de trabajo distinto.
+      }
     } catch (err) {
       setMensaje({
         tipo: 'error',
@@ -496,6 +533,53 @@ export default function PantallaFpyRwk({ usuario }) {
 
   return (
     <Stack spacing={2.5}>
+      {pendientes.length > 0 && (
+        <Card sx={{ borderLeft: '4px solid', borderColor: 'info.main' }}>
+          <CardContent sx={{ p: 2.5 }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
+              <CloudQueueOutlinedIcon sx={{ fontSize: 18, color: 'info.main' }} />
+              <Typography
+                variant="overline"
+                color="text.secondary"
+                sx={{ fontWeight: 700, letterSpacing: 0.5 }}
+              >
+                {pendientes.length} {pendientes.length === 1 ? 'pendiente por enviar' : 'pendientes por enviar'}
+              </Typography>
+            </Stack>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              {conectado
+                ? 'Ya hay señal — se están enviando solos.'
+                : 'Se guardaron en este celular y se enviarán solos en cuanto haya señal.'}
+            </Typography>
+            <Stack spacing={1}>
+              {pendientes.map((p) => (
+                <Box
+                  key={p.idLocal}
+                  sx={{
+                    p: 1.25,
+                    borderRadius: 1.5,
+                    bgcolor: 'action.hover',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 1,
+                  }}
+                >
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                      {p.nombre_trabajador} · {p.proyecto}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" noWrap>
+                      ID {p.id_trabajo} · {p.tipo_trabajo}
+                    </Typography>
+                  </Box>
+                </Box>
+              ))}
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardContent sx={{ p: 2.5 }}>
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>

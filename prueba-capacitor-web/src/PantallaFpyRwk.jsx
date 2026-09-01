@@ -426,16 +426,18 @@ export default function PantallaFpyRwk() {
       setMensaje({
         tipo: 'success',
         texto: editandoId
-          ? 'Registro actualizado — puedes seguir con la siguiente etapa'
-          : 'Registro guardado — puedes seguir con la siguiente etapa, o toca "Nuevo registro" para capturar otro',
+          ? 'Registro actualizado'
+          : 'Registro guardado — los campos se quedaron llenos, el siguiente "Guardar" crea uno nuevo (cambia el ID/tipo de trabajo o los valores que correspondan)',
       })
       setProyectos((prev) =>
         prev.includes(resultado.proyecto) ? prev : [resultado.proyecto, ...prev]
       )
-      // No se reinicia el formulario: se queda editando este mismo registro
-      // para poder ir llenando las demas etapas (Soldadura inicial, Raiz...)
-      // en pasos separados, sin tener que buscarlo de nuevo en la lista.
-      setEditandoId(resultado.id)
+      // Si fue una edicion explicita (via el lapiz en la lista), se sigue
+      // apuntando a ese mismo registro. Si fue uno nuevo, NO se marca como
+      // "editando": el siguiente "Guardar" siempre crea un registro nuevo,
+      // aunque el ID de trabajo se repita con un tipo de trabajo distinto
+      // (antes se sobreescribia el que se acababa de guardar).
+      if (editandoId) setEditandoId(resultado.id)
       cargarRegistros()
     } catch (err) {
       setMensaje({

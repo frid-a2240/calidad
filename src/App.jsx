@@ -25,7 +25,7 @@ import {
   Logout as LogoutIcon,
 } from '@mui/icons-material'
 import { checkConexion, obtenerToken, borrarToken, obtenerPerfil } from './api'
-import { drenarCola } from './colaOffline'
+import { drenarCola, drenarColaFpyRwk } from './colaOffline'
 import PantallaLogin from './PantallaLogin'
 import PantallaReportar from './PantallaReportar'
 
@@ -67,10 +67,15 @@ function App() {
     const check = async () => {
       const resultado = await checkConexion()
       if (resultado.ok) {
-        const enviados = await drenarCola()
+        const [enviados, enviadosFpyRwk] = await Promise.all([
+          drenarCola(),
+          drenarColaFpyRwk(),
+        ])
         if (enviados > 0) {
-          setPendientesVersion((v) => v + 1)
           setRefreshHistorial((v) => v + 1)
+        }
+        if (enviados > 0 || enviadosFpyRwk > 0) {
+          setPendientesVersion((v) => v + 1)
         }
       }
       setConectado(resultado.ok)
@@ -278,7 +283,11 @@ function App() {
           </Suspense>
         ) : (
           <Suspense fallback={<CargandoPantalla />}>
-            <PantallaFpyRwk usuario={usuario} />
+            <PantallaFpyRwk
+              usuario={usuario}
+              conectado={conectado}
+              pendientesVersion={pendientesVersion}
+            />
           </Suspense>
         )}
 

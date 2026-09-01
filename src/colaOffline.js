@@ -3,9 +3,10 @@
 // (funciona igual en web con localStorage, y en Android con SharedPreferences)
 // y se intentan enviar solos en cuanto vuelve la conexión.
 import { Preferences } from '@capacitor/preferences'
-import { crearReporte, agregarFotos } from './api'
+import { crearReporte, agregarFotos, crearRegistroFpyRwk } from './api'
 
 const CLAVE_COLA = 'reportes_pendientes'
+const CLAVE_COLA_FPY_RWK = 'fpy_rwk_pendientes'
 const CLAVE_CATALOGOS = 'catalogos_cache'
 
 function idLocal() {
@@ -139,6 +140,74 @@ export async function drenarCola() {
     }
   } finally {
     drenando = false
+  }
+  return enviados
+}
+
+export async function listarPendientesFpyRwk() {
+  const { value } = await Preferences.get({ key: CLAVE_COLA_FPY_RWK })
+  return value ? JSON.parse(value) : []
+}
+
+async function guardarColaFpyRwk(cola) {
+  await Preferences.set({ key: CLAVE_COLA_FPY_RWK, value: JSON.stringify(cola) })
+}
+
+async function encolarRegistroFpyRwk(datos) {
+  const cola = await listarPendientesFpyRwk()
+  const pendiente = { ...datos, idLocal: idLocal(), creadoEn: new Date().toISOString() }
+  cola.push(pendiente)
+  await guardarColaFpyRwk(cola)
+  return pendiente
+}
+
+export async function quitarPendienteFpyRwk(idLocalABorrar) {
+  const cola = await listarPendientesFpyRwk()
+  const restante = cola.filter((r) => r.idLocal !== idLocalABorrar)
+  await guardarColaFpyRwk(restante)
+  return restante
+}
+
+/**
+ * Igual que enviarOEncolar, pero para un registro nuevo de Calidad FPY/RWK.
+ * Solo aplica a registros nuevos (no a ediciones de uno ya existente en el
+ * servidor, que sí requieren señal).
+ */
+export async function enviarRegistroFpyRwkOEncolar(datos, conectado) {
+  if (conectado) {
+    try {
+      const resultado = await crearRegistroFpyRwk(datos)
+      return { enviado: true, resultado }
+    } catch (err) {
+      if (!esErrorDeRed(err)) throw err
+    }
+  }
+  await encolarRegistroFpyRwk(datos)
+  return { enviado: false, encolado: true }
+}
+
+let drenandoFpyRwk = false
+
+export async function drenarColaFpyRwk() {
+  if (drenandoFpyRwk) return 0
+  drenandoFpyRwk = true
+  let enviados = 0
+  try {
+    const cola = await listarPendientesFpyRwk()
+    for (const pendiente of cola) {
+      try {
+        const datos = { ...pendiente }
+        delete datos.idLocal
+        delete datos.creadoEn
+        await crearRegistroFpyRwk(datos)
+        await quitarPendienteFpyRwk(pendiente.idLocal)
+        enviados += 1
+      } catch {
+        break
+      }
+    }
+  } finally {
+    drenandoFpyRwk = false
   }
   return enviados
 }
