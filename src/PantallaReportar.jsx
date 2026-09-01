@@ -40,6 +40,7 @@ import {
   ocultarIdTrabajo,
   listarLocaciones,
   ocultarLocacion,
+  webPathADataUrl,
 } from './api'
 import {
   enviarOEncolar,
@@ -155,6 +156,19 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
               ? 'No se pudo abrir la cámara'
               : 'No se pudo abrir la galería',
         })
+      }
+    }
+  }
+
+  const agregarFotosDeGaleria = async () => {
+    try {
+      const { photos } = await Camera.pickImages({ quality: 80, width: 1600 })
+      if (!photos || photos.length === 0) return
+      const dataUrls = await Promise.all(photos.map((foto) => webPathADataUrl(foto.webPath)))
+      setFotos((prev) => [...prev, ...dataUrls])
+    } catch (error) {
+      if (!String(error).includes('cancelled')) {
+        setMensaje({ tipo: 'error', texto: 'No se pudo abrir la galería' })
       }
     }
   }
@@ -685,7 +699,7 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
             </Box>
 
             <Box
-              onClick={enviando ? undefined : () => agregarFoto(CameraSource.Photos)}
+              onClick={enviando ? undefined : agregarFotosDeGaleria}
               sx={{
                 width: 88,
                 height: 88,
@@ -706,7 +720,7 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
             >
               <AddPhotoAlternateOutlinedIcon sx={{ fontSize: 22, color: 'text.secondary' }} />
               <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
-                Subir foto
+                Subir fotos
               </Typography>
             </Box>
           </Stack>

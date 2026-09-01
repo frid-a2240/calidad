@@ -29,7 +29,7 @@ import {
 } from '@mui/icons-material'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { useEffect, useState, useCallback } from 'react'
-import { eliminarReporte, listarReportes, urlFoto } from './api'
+import { eliminarReporte, listarReportes, urlFoto, webPathADataUrl } from './api'
 import { agregarFotosOEncolar, listarPendientes } from './colaOffline'
 
 function formatearFecha(iso) {
@@ -146,9 +146,20 @@ export default function PantallaHistorial({ refreshTrigger, usuario, conectado, 
       setFotosNuevas((prev) => [...prev, image.dataUrl])
     } catch (error) {
       if (!String(error).includes('cancelled')) {
-        setErrorFotos(
-          source === CameraSource.Camera ? 'No se pudo abrir la cámara' : 'No se pudo abrir la galería'
-        )
+        setErrorFotos('No se pudo abrir la cámara')
+      }
+    }
+  }
+
+  const agregarFotosDeGaleria = async () => {
+    try {
+      const { photos } = await Camera.pickImages({ quality: 80, width: 1600 })
+      if (!photos || photos.length === 0) return
+      const dataUrls = await Promise.all(photos.map((foto) => webPathADataUrl(foto.webPath)))
+      setFotosNuevas((prev) => [...prev, ...dataUrls])
+    } catch (error) {
+      if (!String(error).includes('cancelled')) {
+        setErrorFotos('No se pudo abrir la galería')
       }
     }
   }
@@ -541,7 +552,7 @@ export default function PantallaHistorial({ refreshTrigger, usuario, conectado, 
                     </Box>
 
                     <Box
-                      onClick={guardandoFotos ? undefined : () => agregarFotoLocal(CameraSource.Photos)}
+                      onClick={guardandoFotos ? undefined : agregarFotosDeGaleria}
                       sx={{
                         width: 88,
                         height: 88,
@@ -558,7 +569,7 @@ export default function PantallaHistorial({ refreshTrigger, usuario, conectado, 
                     >
                       <AddPhotoAlternateOutlinedIcon sx={{ fontSize: 22, color: 'text.secondary' }} />
                       <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
-                        Subir foto
+                        Subir fotos
                       </Typography>
                     </Box>
                   </Stack>

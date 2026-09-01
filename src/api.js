@@ -58,6 +58,18 @@ api.interceptors.response.use(
 )
 
 
+export async function webPathADataUrl(webPath) {
+  const respuesta = await fetch(webPath)
+  const blob = await respuesta.blob()
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = () => resolve(reader.result)
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+}
+
+
 function dataUrlToBlob(dataUrl) {
   const arr = dataUrl.split(',')
   const mime = arr[0].match(/:(.*?);/)[1]
