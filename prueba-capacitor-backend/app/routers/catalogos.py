@@ -70,6 +70,7 @@ def ocultar_proyecto(
 
 @router.get("/ids-trabajo", response_model=list[str])
 def listar_ids_trabajo(
+    locacion: str | None = Query(None, min_length=1),
     db: Session = Depends(get_db),
     usuario_actual: Usuario = Depends(get_current_user),
 ):
@@ -78,17 +79,21 @@ def listar_ids_trabajo(
     Igual que /proyectos: no es un catálogo fijo, se alimenta solo con lo
     que los inspectores van escribiendo, para poder reseleccionarlo sin
     volver a teclearlo.
+
+    Si se manda `locacion`, solo regresa los IDs ya usados en esa
+    locación (para que, dentro de una carpeta, no aparezcan IDs de otras
+    carpetas).
     """
     ocultos = {fila.id_trabajo for fila in db.query(IdTrabajoOculto.id_trabajo).all()}
 
-    ultima_fecha = func.max(ReporteCabecera.fecha_creacion)
-    filas = (
-        db.query(ReporteCabecera.id_trabajo)
-        .filter(ReporteCabecera.id_trabajo.isnot(None))
-        .group_by(ReporteCabecera.id_trabajo)
-        .order_by(ultima_fecha.desc())
-        .all()
+    consulta = db.query(ReporteCabecera.id_trabajo).filter(
+        ReporteCabecera.id_trabajo.isnot(None)
     )
+    if locacion:
+        consulta = consulta.filter(ReporteCabecera.locacion == locacion)
+
+    ultima_fecha = func.max(ReporteCabecera.fecha_creacion)
+    filas = consulta.group_by(ReporteCabecera.id_trabajo).order_by(ultima_fecha.desc()).all()
     return [fila.id_trabajo for fila in filas if fila.id_trabajo not in ocultos]
 
 

@@ -213,6 +213,21 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
     setVista('formulario')
   }
 
+  // Dentro de una carpeta, el ID de trabajo solo debe sugerir los IDs ya
+  // usados en ESA carpeta (no los de todas las demás locaciones).
+  useEffect(() => {
+    if (!locacionActiva) return
+    let cancelado = false
+    listarIdsTrabajo(locacionActiva)
+      .then((datos) => {
+        if (!cancelado) setIdsTrabajo(datos)
+      })
+      .catch(() => {})
+    return () => {
+      cancelado = true
+    }
+  }, [locacionActiva])
+
   const volverACarpetas = () => {
     setVista('carpetas')
   }

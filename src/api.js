@@ -100,8 +100,10 @@ export async function ocultarProyecto(nombre) {
 }
 
 
-export async function listarIdsTrabajo() {
-  const response = await api.get('/catalogos/ids-trabajo')
+export async function listarIdsTrabajo(locacion) {
+  const response = await api.get('/catalogos/ids-trabajo', {
+    params: locacion ? { locacion } : undefined,
+  })
   return response.data
 }
 
