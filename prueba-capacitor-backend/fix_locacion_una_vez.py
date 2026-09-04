@@ -1,7 +1,7 @@
 """
 Script de un solo uso para mover los reportes con id_trabajo "7.12" y
-"7.01" de la locación "Tanque Agua potable #2" a "Tanque cubierta
-principal" (quedaron mal capturados por error).
+"7.01" de la locación "Tanque Agua Potable #2Estribor" a "Tanque
+cubierta principal" (quedaron mal capturados por error).
 
 No usa el endpoint de editar locación porque ese actualiza TODOS los
 reportes que comparten el mismo texto de locación, no solo los que se
@@ -19,7 +19,7 @@ from sqlalchemy import func
 from app.database import SessionLocal
 from app.models import ReporteCabecera, Proceso
 
-LOCACION_ACTUAL = "Tanque Agua potable #2"
+LOCACION_ACTUAL = "Tanque Agua Potable #2Estribor"
 LOCACION_NUEVA = "Tanque cubierta principal"
 IDS_TRABAJO_A_MOVER = ["7.12", "7.01"]
 
