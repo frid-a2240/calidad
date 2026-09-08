@@ -108,6 +108,12 @@ export async function listarIdsTrabajo(locacion) {
 }
 
 
+export async function listarIdsTrabajoDetalle(locacion) {
+  const response = await api.get('/catalogos/ids-trabajo-detalle', { params: { locacion } })
+  return response.data
+}
+
+
 export async function ocultarIdTrabajo(idTrabajo) {
   await api.delete('/catalogos/ids-trabajo', { params: { id_trabajo: idTrabajo } })
 }

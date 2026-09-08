@@ -12,7 +12,7 @@ from app.models import (
     ReporteCabecera,
     Usuario,
 )
-from app.schemas import InspectorOut, ProcesoOut
+from app.schemas import IdTrabajoDetalleOut, InspectorOut, ProcesoOut
 
 router = APIRouter(prefix="/catalogos", tags=["catalogos"])
 
@@ -95,6 +95,39 @@ def listar_ids_trabajo(
     ultima_fecha = func.max(ReporteCabecera.fecha_creacion)
     filas = consulta.group_by(ReporteCabecera.id_trabajo).order_by(ultima_fecha.desc()).all()
     return [fila.id_trabajo for fila in filas if fila.id_trabajo not in ocultos]
+
+
+@router.get("/ids-trabajo-detalle", response_model=list[IdTrabajoDetalleOut])
+def listar_ids_trabajo_detalle(
+    locacion: str = Query(..., min_length=1),
+    db: Session = Depends(get_db),
+    usuario_actual: Usuario = Depends(get_current_user),
+):
+    """Para una carpeta (locación), cada ID de trabajo ya usado ahí junto
+    con el proceso de ese reporte (ej. "11.07" + "Raíz"), para poder
+    mostrar "11.07 · Raíz" al escribir el ID en la app móvil. Un mismo ID
+    puede aparecer varias veces si ya tiene reportes de distintos
+    procesos.
+    """
+    ocultos = {fila.id_trabajo for fila in db.query(IdTrabajoOculto.id_trabajo).all()}
+
+    ultima_fecha = func.max(ReporteCabecera.fecha_creacion)
+    filas = (
+        db.query(ReporteCabecera.id_trabajo, Proceso.nombre)
+        .join(Proceso, Proceso.id == ReporteCabecera.proceso_id)
+        .filter(
+            ReporteCabecera.locacion == locacion,
+            ReporteCabecera.id_trabajo.isnot(None),
+        )
+        .group_by(ReporteCabecera.id_trabajo, Proceso.nombre)
+        .order_by(ultima_fecha.desc())
+        .all()
+    )
+    return [
+        {"id_trabajo": id_trabajo, "proceso": proceso}
+        for id_trabajo, proceso in filas
+        if id_trabajo not in ocultos
+    ]
 
 
 @router.delete("/ids-trabajo", status_code=status.HTTP_204_NO_CONTENT)

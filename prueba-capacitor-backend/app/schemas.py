@@ -45,6 +45,11 @@ class ProcesoOut(BaseModel):
         from_attributes = True
 
 
+class IdTrabajoDetalleOut(BaseModel):
+    id_trabajo: str
+    proceso: str
+
+
 class FotoOut(BaseModel):
     id: int
     foto_nombre: str

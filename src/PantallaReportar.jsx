@@ -37,6 +37,7 @@ import {
   listarProyectos,
   ocultarProyecto,
   listarIdsTrabajo,
+  listarIdsTrabajoDetalle,
   ocultarIdTrabajo,
   listarLocaciones,
   ocultarLocacion,
@@ -214,11 +215,12 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
   }
 
   // Dentro de una carpeta, el ID de trabajo solo debe sugerir los IDs ya
-  // usados en ESA carpeta (no los de todas las demás locaciones).
+  // usados en ESA carpeta (no los de todas las demás locaciones), y con
+  // su proceso al lado (ej. "11.07 · Raíz") para no amontonar todo junto.
   useEffect(() => {
     if (!locacionActiva) return
     let cancelado = false
-    listarIdsTrabajo(locacionActiva)
+    listarIdsTrabajoDetalle(locacionActiva)
       .then((datos) => {
         if (!cancelado) setIdsTrabajo(datos)
       })
@@ -576,10 +578,21 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
               freeSolo
               options={idsTrabajo}
               value={idTrabajo}
+              getOptionLabel={(option) => (typeof option === 'string' ? option : option.id_trabajo)}
+              isOptionEqualToValue={(option, valor) =>
+                (typeof option === 'string' ? option : option.id_trabajo) === valor
+              }
+              onChange={(e, opcionElegida) => {
+                if (opcionElegida && typeof opcionElegida === 'object') {
+                  setIdTrabajo(opcionElegida.id_trabajo)
+                }
+              }}
               onInputChange={(e, valorNuevo) => setIdTrabajo(valorNuevo)}
               disabled={enviando}
               renderOption={(props, option) => {
                 const { key, ...optionProps } = props
+                const esTexto = typeof option === 'string'
+                const idMostrado = esTexto ? option : option.id_trabajo
                 return (
                   <Box
                     key={key}
@@ -592,7 +605,13 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
                     }}
                   >
                     <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {option}
+                      {idMostrado}
+                      {!esTexto && (
+                        <Box component="span" sx={{ color: 'text.secondary' }}>
+                          {' · '}
+                          {option.proceso}
+                        </Box>
+                      )}
                     </Box>
                     <IconButton
                       size="small"
@@ -600,7 +619,7 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
                         e.preventDefault()
                         e.stopPropagation()
                       }}
-                      onClick={(e) => borrarSugerenciaIdTrabajo(option, e)}
+                      onClick={(e) => borrarSugerenciaIdTrabajo(idMostrado, e)}
                     >
                       <CloseIcon sx={{ fontSize: 16 }} />
                     </IconButton>
