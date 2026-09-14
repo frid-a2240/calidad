@@ -214,3 +214,44 @@ export function agruparPromediosPorProyecto(registros) {
       return fila
     })
 }
+
+// % FPY y % RWK promedio por etapa, agrupado por trabajador — para ver el
+// desempeño de cada quien por proceso (Armado, Soldadura inicial, Raíz,
+// Soldadura final), sin importar en qué proyecto haya trabajado.
+export function agruparPromediosPorTrabajador(registros) {
+  const grupos = new Map()
+  for (const r of registros) {
+    if (!r.nombre_trabajador) continue
+    if (!grupos.has(r.nombre_trabajador)) grupos.set(r.nombre_trabajador, [])
+    grupos.get(r.nombre_trabajador).push(r)
+  }
+  return Array.from(grupos.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([trabajador, items]) => {
+      const fpyPorRegistro = items
+        .map((r) => promedioEtapasRegistro(r, '_pct_fpy'))
+        .filter((v) => v !== null)
+      const rwkPorRegistro = items
+        .map((r) => promedioEtapasRegistro(r, '_pct_rwk'))
+        .filter((v) => v !== null)
+      const fila = {
+        clave: trabajador,
+        label: trabajador,
+        trabajador,
+        total: items.length,
+        fpy: promedio(fpyPorRegistro),
+        rwk: promedio(rwkPorRegistro),
+      }
+      for (const etapa of ETAPAS) {
+        const valoresRwk = items
+          .map((r) => r[`${etapa.id}_pct_rwk`])
+          .filter((v) => v !== null && v !== undefined)
+        const valoresFpy = items
+          .map((r) => r[`${etapa.id}_pct_fpy`])
+          .filter((v) => v !== null && v !== undefined)
+        fila[`${etapa.id}_rwk`] = promedio(valoresRwk)
+        fila[`${etapa.id}_fpy`] = promedio(valoresFpy)
+      }
+      return fila
+    })
+}

@@ -56,6 +56,7 @@ import {
   calcularFpyRwk,
   agruparPromediosPorFecha,
   agruparPromediosPorProyecto,
+  agruparPromediosPorTrabajador,
   META_FPY,
   META_RWK,
 } from './calculosFpyRwk'
@@ -111,11 +112,11 @@ function GraficoMetaMensual({ titulo, datos, valorKey, meta, mejorSiMayor }) {
 // Un bloque de barras (una por proceso: Armado, Soldadura inicial, Raíz,
 // Soldadura final) para un solo proyecto, para ver de un vistazo en qué
 // etapa se está quedando corto ese proyecto en particular.
-function GraficoPorProceso({ titulo, proyectoData, sufijo, meta, mejorSiMayor }) {
+function GraficoPorProceso({ titulo, datosFila, sufijo, meta, mejorSiMayor }) {
   const barras = ETAPAS.map((etapa) => ({
     clave: etapa.id,
     label: etapa.titulo,
-    valor: proyectoData[`${etapa.id}_${sufijo}`],
+    valor: datosFila[`${etapa.id}_${sufijo}`],
   }))
 
   return <BarrasMeta titulo={titulo} barras={barras} meta={meta} mejorSiMayor={mejorSiMayor} />
@@ -292,6 +293,7 @@ export default function PantallaFpyRwk() {
   const [eliminando, setEliminando] = useState(false)
   const [errorEliminar, setErrorEliminar] = useState(null)
   const [filtroProyecto, setFiltroProyecto] = useState('')
+  const [filtroTrabajador, setFiltroTrabajador] = useState('')
 
   useEffect(() => {
     listarProyectos()
@@ -355,6 +357,22 @@ export default function PantallaFpyRwk() {
   const promediosPorProyecto = useMemo(
     () => agruparPromediosPorProyecto(registrosFiltrados),
     [registrosFiltrados]
+  )
+  const trabajadoresSugeridos = useMemo(
+    () =>
+      [...new Set(registros.map((r) => r.nombre_trabajador).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b)
+      ),
+    [registros]
+  )
+  const registrosDelTrabajador = useMemo(() => {
+    const q = filtroTrabajador.trim().toLowerCase()
+    if (!q) return []
+    return registros.filter((r) => r.nombre_trabajador?.toLowerCase().includes(q))
+  }, [registros, filtroTrabajador])
+  const promediosPorTrabajador = useMemo(
+    () => agruparPromediosPorTrabajador(registrosDelTrabajador),
+    [registrosDelTrabajador]
   )
   const promediosPorFecha = useMemo(
     () => agruparPromediosPorFecha(registrosFiltrados),
@@ -488,11 +506,15 @@ export default function PantallaFpyRwk() {
             Calidad FPY / RWK
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {filtroProyecto.trim()
-              ? `${registrosFiltrados.length} ${
-                  registrosFiltrados.length === 1 ? 'registro' : 'registros'
-                } · filtro activo`
-              : `${registros.length} ${registros.length === 1 ? 'registro capturado' : 'registros capturados'}`}
+            {filtroTrabajador.trim()
+              ? `${registrosDelTrabajador.length} ${
+                  registrosDelTrabajador.length === 1 ? 'registro' : 'registros'
+                } de ese trabajador`
+              : filtroProyecto.trim()
+                ? `${registrosFiltrados.length} ${
+                    registrosFiltrados.length === 1 ? 'registro' : 'registros'
+                  } · filtro activo`
+                : `${registros.length} ${registros.length === 1 ? 'registro capturado' : 'registros capturados'}`}
           </Typography>
         </Box>
       </Stack>
@@ -803,16 +825,33 @@ export default function PantallaFpyRwk() {
               Filtro
             </Typography>
           </Stack>
-          <Autocomplete
-            freeSolo
-            options={proyectos}
-            value={filtroProyecto}
-            onInputChange={(e, valorNuevo) => setFiltroProyecto(valorNuevo || '')}
-            sx={{ maxWidth: 320 }}
-            renderInput={(params) => (
-              <TextField {...params} label="Proyecto" placeholder="Todos los proyectos" size="small" />
-            )}
-          />
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <Autocomplete
+              freeSolo
+              options={proyectos}
+              value={filtroProyecto}
+              onInputChange={(e, valorNuevo) => setFiltroProyecto(valorNuevo || '')}
+              sx={{ maxWidth: 320, width: '100%' }}
+              renderInput={(params) => (
+                <TextField {...params} label="Proyecto" placeholder="Todos los proyectos" size="small" />
+              )}
+            />
+            <Autocomplete
+              freeSolo
+              options={trabajadoresSugeridos}
+              value={filtroTrabajador}
+              onInputChange={(e, valorNuevo) => setFiltroTrabajador(valorNuevo || '')}
+              sx={{ maxWidth: 320, width: '100%' }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Trabajador"
+                  placeholder="Todos los trabajadores"
+                  size="small"
+                />
+              )}
+            />
+          </Stack>
         </CardContent>
       </Card>
 
@@ -969,7 +1008,7 @@ export default function PantallaFpyRwk() {
             </>
           )}
 
-          {promediosPorProyecto.length > 0 && (
+          {promediosPorProyecto.length > 0 && !filtroTrabajador.trim() && (
             <>
               {!filtroProyecto.trim() && (
                 <Card>
@@ -1023,7 +1062,7 @@ export default function PantallaFpyRwk() {
                         <Box sx={{ minWidth: 320 }}>
                           <GraficoPorProceso
                             titulo="% FPY (mayor a la meta es mejor)"
-                            proyectoData={p}
+                            datosFila={p}
                             sufijo="fpy"
                             meta={META_FPY}
                             mejorSiMayor
@@ -1034,7 +1073,49 @@ export default function PantallaFpyRwk() {
                         <Box sx={{ minWidth: 320 }}>
                           <GraficoPorProceso
                             titulo="% RWK (menor a la meta es mejor)"
-                            proyectoData={p}
+                            datosFila={p}
+                            sufijo="rwk"
+                            meta={META_RWK}
+                            mejorSiMayor={false}
+                          />
+                        </Box>
+                      </Box>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              ))}
+            </>
+          )}
+
+          {filtroTrabajador.trim() && promediosPorTrabajador.length > 0 && (
+            <>
+              {promediosPorTrabajador.map((t) => (
+                <Card key={t.clave}>
+                  <CardContent sx={{ p: 2.5 }}>
+                    <Typography
+                      variant="overline"
+                      color="text.secondary"
+                      sx={{ fontWeight: 600, letterSpacing: 0.5 }}
+                    >
+                      {t.trabajador} · % por proceso (Armado, Soldadura inicial, Raíz, Soldadura final)
+                    </Typography>
+                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} sx={{ mt: 2 }}>
+                      <Box sx={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
+                        <Box sx={{ minWidth: 320 }}>
+                          <GraficoPorProceso
+                            titulo="% FPY (mayor a la meta es mejor)"
+                            datosFila={t}
+                            sufijo="fpy"
+                            meta={META_FPY}
+                            mejorSiMayor
+                          />
+                        </Box>
+                      </Box>
+                      <Box sx={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
+                        <Box sx={{ minWidth: 320 }}>
+                          <GraficoPorProceso
+                            titulo="% RWK (menor a la meta es mejor)"
+                            datosFila={t}
                             sufijo="rwk"
                             meta={META_RWK}
                             mejorSiMayor={false}

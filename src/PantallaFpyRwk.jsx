@@ -39,6 +39,7 @@ import {
   Refresh as RefreshIcon,
   ExpandMore as ExpandMoreIcon,
   CloudQueueOutlined as CloudQueueOutlinedIcon,
+  FilterAltOutlined as FilterAltOutlinedIcon,
 } from '@mui/icons-material'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -58,6 +59,7 @@ import {
   calcularFpyRwk,
   agruparPromediosPorFecha,
   agruparPromediosPorMes,
+  agruparPromediosPorTrabajador,
   promedioEtapasRegistro,
   META_FPY,
   META_RWK,
@@ -326,6 +328,7 @@ export default function PantallaFpyRwk({ usuario, conectado, pendientesVersion }
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState(null)
   const [pendientes, setPendientes] = useState([])
+  const [filtroTrabajador, setFiltroTrabajador] = useState('')
 
   const [registros, setRegistros] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -413,6 +416,22 @@ export default function PantallaFpyRwk({ usuario, conectado, pendientesVersion }
   const calculado = useMemo(() => calcularFpyRwk(form), [form])
   const promediosPorFecha = useMemo(() => agruparPromediosPorFecha(registros), [registros])
   const promediosPorMes = useMemo(() => agruparPromediosPorMes(registros), [registros])
+  const trabajadoresSugeridos = useMemo(
+    () =>
+      [...new Set(registros.map((r) => r.nombre_trabajador).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b)
+      ),
+    [registros]
+  )
+  const registrosDelTrabajador = useMemo(() => {
+    const q = filtroTrabajador.trim().toLowerCase()
+    if (!q) return []
+    return registros.filter((r) => r.nombre_trabajador?.toLowerCase().includes(q))
+  }, [registros, filtroTrabajador])
+  const promediosPorTrabajador = useMemo(
+    () => agruparPromediosPorTrabajador(registrosDelTrabajador),
+    [registrosDelTrabajador]
+  )
 
   const puedeGuardar =
     form.nombre_trabajador.trim() &&
@@ -919,6 +938,35 @@ export default function PantallaFpyRwk({ usuario, conectado, pendientesVersion }
         </AccordionDetails>
       </Accordion>
 
+      <Card>
+        <CardContent sx={{ p: 2.5 }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1.5 }}>
+            <FilterAltOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+            <Typography
+              variant="overline"
+              color="text.secondary"
+              sx={{ fontWeight: 700, letterSpacing: 0.5 }}
+            >
+              Filtro
+            </Typography>
+          </Stack>
+          <Autocomplete
+            freeSolo
+            options={trabajadoresSugeridos}
+            value={filtroTrabajador}
+            onInputChange={(e, valorNuevo) => setFiltroTrabajador(valorNuevo || '')}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Trabajador"
+                placeholder="Todos los trabajadores"
+                fullWidth
+              />
+            )}
+          />
+        </CardContent>
+      </Card>
+
       {promediosPorFecha.length > 0 && (
         <>
           <TablaPromedioPorFecha
@@ -940,7 +988,7 @@ export default function PantallaFpyRwk({ usuario, conectado, pendientesVersion }
         </>
       )}
 
-      {promediosPorMes.length > 0 && (
+      {promediosPorMes.length > 0 && !filtroTrabajador.trim() && (
         <Card>
           <CardContent sx={{ p: 2.5 }}>
             <Typography
@@ -969,6 +1017,45 @@ export default function PantallaFpyRwk({ usuario, conectado, pendientesVersion }
           </CardContent>
         </Card>
       )}
+
+      {filtroTrabajador.trim() &&
+        promediosPorTrabajador.map((t) => {
+          const filaEtapas = ETAPAS.map((etapa) => ({
+            clave: etapa.id,
+            label: etapa.titulo,
+            fpy: t[`${etapa.id}_fpy`],
+            rwk: t[`${etapa.id}_rwk`],
+          }))
+          return (
+            <Card key={t.clave}>
+              <CardContent sx={{ p: 2.5 }}>
+                <Typography
+                  variant="overline"
+                  color="text.secondary"
+                  sx={{ fontWeight: 600, letterSpacing: 0.5 }}
+                >
+                  {t.trabajador} · % por proceso
+                </Typography>
+                <Stack spacing={3} sx={{ mt: 2 }}>
+                  <GraficoMetaMensual
+                    titulo="% FPY (mayor a la meta es mejor)"
+                    datos={filaEtapas}
+                    valorKey="fpy"
+                    meta={META_FPY}
+                    mejorSiMayor
+                  />
+                  <GraficoMetaMensual
+                    titulo="% RWK (menor a la meta es mejor)"
+                    datos={filaEtapas}
+                    valorKey="rwk"
+                    meta={META_RWK}
+                    mejorSiMayor={false}
+                  />
+                </Stack>
+              </CardContent>
+            </Card>
+          )
+        })}
 
       {/* DETALLE */}
       <Dialog
