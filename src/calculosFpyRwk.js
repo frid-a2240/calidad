@@ -98,7 +98,7 @@ export function calcularFpyRwk(datos) {
 }
 
 export const META_FPY = 0.8 // FPY debe ser mayor a 80%
-export const META_RWK = 0.8 // RWK debe ser menor a 80%
+export const META_RWK = 0.2 // RWK debe ser menor a 20%
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
