@@ -189,3 +189,4 @@ class RegistroFpyRwk(Base):
     sol_final_pct_fpy = Column(Float, nullable=True)
 
     capturado_por = relationship("Usuario")
+
