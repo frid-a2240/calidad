@@ -79,6 +79,30 @@ const FILTROS_VACIOS = {
 
 const CLAVE_SIN_LOCACION = '__sin_locacion__'
 
+function agruparPorProyecto(reportes) {
+  const grupos = new Map()
+  for (const r of reportes) {
+    if (!grupos.has(r.proyecto)) grupos.set(r.proyecto, [])
+    grupos.get(r.proyecto).push(r)
+  }
+
+  const masReciente = (items) =>
+    items.reduce((a, b) => (a.fecha_creacion > b.fecha_creacion ? a : b))
+
+  const proyectos = Array.from(grupos.entries()).map(([proyecto, items]) => {
+    const ultimo = masReciente(items)
+    const carpetasUnicas = new Set(items.map((i) => i.locacion).filter(Boolean))
+    return {
+      proyecto,
+      total: items.length,
+      totalCarpetas: carpetasUnicas.size,
+      fechaUltima: ultimo.fecha_creacion,
+    }
+  })
+  proyectos.sort((a, b) => (a.fechaUltima < b.fechaUltima ? 1 : -1))
+  return proyectos
+}
+
 function agruparPorLocacion(reportes) {
   const grupos = new Map()
   const sinLocacion = []
@@ -148,7 +172,8 @@ export default function PantallaReportes({ usuario }) {
   const [locacionesSugeridas, setLocacionesSugeridas] = useState([])
   const [inspectores, setInspectores] = useState([])
 
-  const [vista, setVista] = useState('carpetas') // 'carpetas' | 'tabla'
+  const [vista, setVista] = useState('proyectos') // 'proyectos' | 'carpetas' | 'tabla'
+  const [proyectoActivo, setProyectoActivo] = useState('')
   const [filtros, setFiltros] = useState(FILTROS_VACIOS)
   const [filtrosAplicados, setFiltrosAplicados] = useState(FILTROS_VACIOS)
 
@@ -241,7 +266,11 @@ export default function PantallaReportes({ usuario }) {
     iniciar()
   }, [cargarReportes])
 
-  const carpetas = useMemo(() => agruparPorLocacion(reportes), [reportes])
+  const proyectosAgrupados = useMemo(() => agruparPorProyecto(reportes), [reportes])
+  const carpetas = useMemo(
+    () => agruparPorLocacion(reportes.filter((r) => r.proyecto === proyectoActivo)),
+    [reportes, proyectoActivo]
+  )
 
   const idTrabajoDeVista = useMemo(() => {
     if (vista !== 'tabla' || reportes.length === 0) return null
@@ -251,21 +280,37 @@ export default function PantallaReportes({ usuario }) {
 
   const buscar = (e) => {
     e?.preventDefault()
+    setProyectoActivo('')
     setFiltrosAplicados(filtros)
     setVista('tabla')
     cargarReportes(filtros)
   }
 
   const limpiarFiltros = () => {
+    setProyectoActivo('')
     setFiltros(FILTROS_VACIOS)
     setFiltrosAplicados(FILTROS_VACIOS)
     setVista('tabla')
     cargarReportes(FILTROS_VACIOS)
   }
 
+  const abrirProyecto = (proyecto) => {
+    setProyectoActivo(proyecto)
+    setVista('carpetas')
+  }
+
+  const volverAProyectos = () => {
+    setProyectoActivo('')
+    setFiltros(FILTROS_VACIOS)
+    setFiltrosAplicados(FILTROS_VACIOS)
+    setVista('proyectos')
+    cargarReportes(FILTROS_VACIOS)
+  }
+
   const abrirCarpeta = (carpeta) => {
     const nuevosFiltros = {
       ...FILTROS_VACIOS,
+      proyecto: proyectoActivo,
       locacion: carpeta.sinLocacion ? '' : carpeta.locacion,
       sinLocacion: carpeta.sinLocacion,
     }
@@ -278,7 +323,7 @@ export default function PantallaReportes({ usuario }) {
   const volverACarpetas = () => {
     setFiltros(FILTROS_VACIOS)
     setFiltrosAplicados(FILTROS_VACIOS)
-    setVista('carpetas')
+    setVista(proyectoActivo ? 'carpetas' : 'proyectos')
     cargarReportes(FILTROS_VACIOS)
   }
 
@@ -605,9 +650,11 @@ export default function PantallaReportes({ usuario }) {
             sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.25 }}
           >
             <span>
-              {vista === 'carpetas'
-                ? `${carpetas.length} ${carpetas.length === 1 ? 'carpeta' : 'carpetas'} por locación`
-                : `${reportes.length} ${reportes.length === 1 ? 'reporte encontrado' : 'reportes encontrados'}`}
+              {vista === 'proyectos'
+                ? `${proyectosAgrupados.length} ${proyectosAgrupados.length === 1 ? 'proyecto' : 'proyectos'}`
+                : vista === 'carpetas'
+                  ? `${carpetas.length} ${carpetas.length === 1 ? 'carpeta' : 'carpetas'} en ${proyectoActivo}`
+                  : `${reportes.length} ${reportes.length === 1 ? 'reporte encontrado' : 'reportes encontrados'}`}
             </span>
             {vista === 'tabla' && idTrabajoDeVista && (
               <>
@@ -852,23 +899,32 @@ export default function PantallaReportes({ usuario }) {
       <Stack
         direction="row"
         sx={{
-          justifyContent: vista === 'tabla' ? 'space-between' : 'flex-end',
+          justifyContent: vista === 'proyectos' ? 'flex-end' : 'space-between',
           alignItems: 'center',
         }}
       >
+        {vista === 'carpetas' && (
+          <Button
+            size="small"
+            startIcon={<ArrowBackOutlinedIcon fontSize="small" />}
+            onClick={volverAProyectos}
+          >
+            Volver a proyectos
+          </Button>
+        )}
         {vista === 'tabla' && (
           <Button
             size="small"
             startIcon={<ArrowBackOutlinedIcon fontSize="small" />}
             onClick={volverACarpetas}
           >
-            Volver a carpetas
+            {proyectoActivo ? 'Volver a carpetas' : 'Volver a proyectos'}
           </Button>
         )}
         <Button
           size="small"
           startIcon={<RefreshIcon fontSize="small" />}
-          onClick={() => cargarReportes(vista === 'carpetas' ? FILTROS_VACIOS : filtrosAplicados)}
+          onClick={() => cargarReportes(vista === 'tabla' ? filtrosAplicados : FILTROS_VACIOS)}
           disabled={cargando}
         >
           Actualizar
@@ -877,7 +933,71 @@ export default function PantallaReportes({ usuario }) {
 
       {error && <Alert severity="error">{error}</Alert>}
 
-      {vista === 'carpetas' ? (
+      {vista === 'proyectos' ? (
+        cargando && reportes.length === 0 ? (
+          <Box sx={{ textAlign: 'center', py: 6 }}>
+            <CircularProgress />
+          </Box>
+        ) : proyectosAgrupados.length === 0 ? (
+          <Card>
+            <CardContent sx={{ textAlign: 'center', py: 7 }}>
+              <FactCheckOutlinedIcon sx={{ fontSize: 44, color: 'text.disabled', mb: 1 }} />
+              <Typography variant="body1" color="text.secondary">
+                Aún no hay reportes capturados
+              </Typography>
+            </CardContent>
+          </Card>
+        ) : (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, 1fr)',
+                md: 'repeat(3, 1fr)',
+              },
+              gap: 2,
+            }}
+          >
+            {proyectosAgrupados.map((p) => (
+              <Card
+                key={p.proyecto}
+                onClick={() => abrirProyecto(p.proyecto)}
+                sx={{ cursor: 'pointer' }}
+              >
+                <CardContent
+                  sx={{ p: 2.5, display: 'flex', alignItems: 'center', gap: 1.5 }}
+                >
+                  <Box
+                    sx={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 2,
+                      bgcolor: 'primary.main',
+                      color: 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <FolderOutlinedIcon />
+                  </Box>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: 700 }} noWrap>
+                      {p.proyecto}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" noWrap>
+                      {p.totalCarpetas} {p.totalCarpetas === 1 ? 'carpeta' : 'carpetas'} ·{' '}
+                      {p.total} {p.total === 1 ? 'reporte' : 'reportes'}
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        )
+      ) : vista === 'carpetas' ? (
         cargando && reportes.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 6 }}>
             <CircularProgress />

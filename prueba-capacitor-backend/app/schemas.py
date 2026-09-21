@@ -50,6 +50,11 @@ class IdTrabajoDetalleOut(BaseModel):
     proceso: str
 
 
+class ProyectoLocacionesOut(BaseModel):
+    proyecto: str
+    locaciones: list[str]
+
+
 class FotoOut(BaseModel):
     id: int
     foto_nombre: str

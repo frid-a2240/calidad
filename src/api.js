@@ -130,6 +130,12 @@ export async function ocultarLocacion(locacion) {
 }
 
 
+export async function listarProyectosLocaciones() {
+  const response = await api.get('/catalogos/proyectos-locaciones')
+  return response.data
+}
+
+
 export async function crearReporte({ proyecto, idTrabajo, locacion, procesoId, comentario, fotosDataUrl }) {
   const formData = new FormData()
   formData.append('proyecto', proyecto)

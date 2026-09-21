@@ -34,12 +34,11 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   listarProcesos,
-  listarProyectos,
+  listarProyectosLocaciones,
   ocultarProyecto,
   listarIdsTrabajo,
   listarIdsTrabajoDetalle,
   ocultarIdTrabajo,
-  listarLocaciones,
   ocultarLocacion,
   webPathADataUrl,
 } from './api'
@@ -52,20 +51,23 @@ import {
 
 export default function PantallaReportar({ conectado, onReporteEnviado, pendientesVersion }) {
   const [procesos, setProcesos] = useState([])
-  const [proyectos, setProyectos] = useState([])
+  const [proyectosLocaciones, setProyectosLocaciones] = useState([])
   const [idsTrabajo, setIdsTrabajo] = useState([])
-  const [locaciones, setLocaciones] = useState([])
   const [cargandoCatalogos, setCargandoCatalogos] = useState(true)
   const [errorCatalogos, setErrorCatalogos] = useState(null)
   const [pendientes, setPendientes] = useState([])
 
-  const [vista, setVista] = useState('carpetas') // 'carpetas' | 'formulario'
+  const [vista, setVista] = useState('proyectos') // 'proyectos' | 'carpetas' | 'formulario'
+  const [proyectoActivo, setProyectoActivo] = useState('')
+  const [dialogNuevoProyectoAbierto, setDialogNuevoProyectoAbierto] = useState(false)
+  const [nuevoProyecto, setNuevoProyecto] = useState('')
+  const [errorNuevoProyecto, setErrorNuevoProyecto] = useState(null)
+
   const [locacionActiva, setLocacionActiva] = useState('')
   const [dialogNuevaLocacionAbierto, setDialogNuevaLocacionAbierto] = useState(false)
   const [nuevaLocacion, setNuevaLocacion] = useState('')
   const [errorNuevaLocacion, setErrorNuevaLocacion] = useState(null)
 
-  const [proyecto, setProyecto] = useState('')
   const [idTrabajo, setIdTrabajo] = useState('')
   const [procesoId, setProcesoId] = useState('')
   const [fotos, setFotos] = useState([])
@@ -79,21 +81,18 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
       setCargandoCatalogos(true)
       setErrorCatalogos(null)
       try {
-        const [datosProcesos, datosProyectos, datosIdsTrabajo, datosLocaciones] = await Promise.all([
+        const [datosProcesos, datosProyectosLocaciones, datosIdsTrabajo] = await Promise.all([
           listarProcesos(),
-          listarProyectos(),
+          listarProyectosLocaciones(),
           listarIdsTrabajo(),
-          listarLocaciones(),
         ])
         setProcesos(datosProcesos)
-        setProyectos(datosProyectos)
+        setProyectosLocaciones(datosProyectosLocaciones)
         setIdsTrabajo(datosIdsTrabajo)
-        setLocaciones(datosLocaciones)
         guardarCatalogosCache({
           procesos: datosProcesos,
-          proyectos: datosProyectos,
+          proyectosLocaciones: datosProyectosLocaciones,
           idsTrabajo: datosIdsTrabajo,
-          locaciones: datosLocaciones,
         })
       } catch (err) {
         // Sin señal y sin nada guardado antes: no hay forma de mostrar el
@@ -102,9 +101,8 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
         const cache = await obtenerCatalogosCache()
         if (cache) {
           setProcesos(cache.procesos)
-          setProyectos(cache.proyectos)
+          setProyectosLocaciones(cache.proyectosLocaciones || [])
           setIdsTrabajo(cache.idsTrabajo)
-          setLocaciones(cache.locaciones)
         } else {
           setErrorCatalogos(
             err.response?.data?.detail || 'No se pudo cargar el catálogo de procesos'
@@ -178,13 +176,14 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
     setFotos((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const borrarSugerenciaProyecto = async (nombre, e) => {
+  const borrarProyecto = async (nombre, e) => {
     e.stopPropagation()
-    setProyectos((prev) => prev.filter((p) => p !== nombre))
+    const anterior = proyectosLocaciones
+    setProyectosLocaciones((prev) => prev.filter((p) => p.proyecto !== nombre))
     try {
       await ocultarProyecto(nombre)
     } catch {
-      setProyectos((prev) => (prev.includes(nombre) ? prev : [...prev, nombre]))
+      setProyectosLocaciones(anterior)
     }
   }
 
@@ -200,12 +199,30 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
 
   const borrarCarpeta = async (nombre, e) => {
     e.stopPropagation()
-    setLocaciones((prev) => prev.filter((l) => l !== nombre))
+    const anterior = proyectosLocaciones
+    setProyectosLocaciones((prev) =>
+      prev.map((p) =>
+        p.proyecto === proyectoActivo
+          ? { ...p, locaciones: p.locaciones.filter((l) => l !== nombre) }
+          : p
+      )
+    )
     try {
       await ocultarLocacion(nombre)
     } catch {
-      setLocaciones((prev) => (prev.includes(nombre) ? prev : [...prev, nombre]))
+      setProyectosLocaciones(anterior)
     }
+  }
+
+  const abrirProyecto = (nombreProyecto) => {
+    setProyectoActivo(nombreProyecto)
+    setMensaje(null)
+    setVista('carpetas')
+  }
+
+  const volverAProyectos = () => {
+    setProyectoActivo('')
+    setVista('proyectos')
   }
 
   const abrirCarpeta = (nombreLocacion) => {
@@ -234,6 +251,25 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
     setVista('carpetas')
   }
 
+  const abrirDialogNuevoProyecto = () => {
+    setNuevoProyecto('')
+    setErrorNuevoProyecto(null)
+    setDialogNuevoProyectoAbierto(true)
+  }
+
+  const confirmarNuevoProyecto = () => {
+    const nombre = nuevoProyecto.trim()
+    if (!nombre) {
+      setErrorNuevoProyecto('Escribe un nombre para el proyecto')
+      return
+    }
+    setProyectosLocaciones((prev) =>
+      prev.some((p) => p.proyecto === nombre) ? prev : [{ proyecto: nombre, locaciones: [] }, ...prev]
+    )
+    setDialogNuevoProyectoAbierto(false)
+    abrirProyecto(nombre)
+  }
+
   const abrirDialogNuevaLocacion = () => {
     setNuevaLocacion('')
     setErrorNuevaLocacion(null)
@@ -246,13 +282,19 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
       setErrorNuevaLocacion('Escribe un nombre para la carpeta')
       return
     }
-    setLocaciones((prev) => (prev.includes(nombre) ? prev : [nombre, ...prev]))
+    setProyectosLocaciones((prev) =>
+      prev.map((p) =>
+        p.proyecto === proyectoActivo
+          ? { ...p, locaciones: p.locaciones.includes(nombre) ? p.locaciones : [nombre, ...p.locaciones] }
+          : p
+      )
+    )
     setDialogNuevaLocacionAbierto(false)
     abrirCarpeta(nombre)
   }
 
   const puedeEnviar =
-    proyecto.trim().length > 0 &&
+    proyectoActivo.trim().length > 0 &&
     idTrabajo.trim().length > 0 &&
     procesoId &&
     fotos.length > 0
@@ -262,9 +304,9 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
     setEnviando(true)
     setMensaje(null)
     try {
-      const { enviado, resultado } = await enviarOEncolar(
+      const { enviado } = await enviarOEncolar(
         {
-          proyecto: proyecto.trim(),
+          proyecto: proyectoActivo,
           idTrabajo: idTrabajo.trim(),
           locacion: locacionActiva,
           procesoId,
@@ -275,9 +317,6 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
       )
       if (enviado) {
         setMensaje({ tipo: 'success', texto: 'Reporte enviado correctamente' })
-        setProyectos((prev) =>
-          prev.includes(resultado.proyecto) ? prev : [resultado.proyecto, ...prev]
-        )
         if (onReporteEnviado) onReporteEnviado()
       } else {
         setMensaje({
@@ -288,7 +327,6 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
       // No se limpia la locación activa ni se vuelve a carpetas: es común
       // seguir capturando varios reportes (distintos procesos) de la misma
       // carpeta uno tras otro.
-      setProyecto('')
       setIdTrabajo('')
       setProcesoId('')
       setFotos([])
@@ -364,9 +402,166 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
     </Card>
   )
 
-  if (vista === 'carpetas') {
+  if (vista === 'proyectos') {
     return (
       <Stack spacing={2.5}>
+        {tarjetaPendientes}
+
+        <Card>
+          <CardContent sx={{ p: 2.5 }}>
+            <Typography
+              variant="overline"
+              color="text.secondary"
+              sx={{ fontWeight: 600, letterSpacing: 0.5 }}
+            >
+              Elige un proyecto para reportar
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Cada proyecto agrupa sus carpetas (locaciones). Al entrar, eliges o creas la carpeta.
+            </Typography>
+          </CardContent>
+        </Card>
+
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+            gap: 1.5,
+          }}
+        >
+          {proyectosLocaciones.map(({ proyecto: nombreProyecto, locaciones }) => (
+            <Card
+              key={nombreProyecto}
+              onClick={() => abrirProyecto(nombreProyecto)}
+              sx={{ cursor: 'pointer' }}
+            >
+              <CardContent
+                sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}
+              >
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 2,
+                    bgcolor: 'primary.main',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <FolderOutlinedIcon />
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 700 }} noWrap>
+                    {nombreProyecto}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" noWrap>
+                    {locaciones.length} {locaciones.length === 1 ? 'carpeta' : 'carpetas'}
+                  </Typography>
+                </Box>
+                <IconButton
+                  size="small"
+                  onClick={(e) => borrarProyecto(nombreProyecto, e)}
+                >
+                  <CloseIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </CardContent>
+            </Card>
+          ))}
+
+          <Card
+            onClick={abrirDialogNuevoProyecto}
+            sx={{
+              cursor: 'pointer',
+              border: '2px dashed',
+              borderColor: 'divider',
+              boxShadow: 'none',
+              bgcolor: 'transparent',
+            }}
+          >
+            <CardContent sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 2,
+                  bgcolor: 'action.hover',
+                  color: 'text.secondary',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <AddCircleOutlineOutlinedIcon />
+              </Box>
+              <Typography sx={{ fontWeight: 700 }} color="text.secondary">
+                Agregar proyecto
+              </Typography>
+            </CardContent>
+          </Card>
+        </Box>
+
+        {/* NUEVO PROYECTO */}
+        <Dialog
+          open={dialogNuevoProyectoAbierto}
+          onClose={() => setDialogNuevoProyectoAbierto(false)}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle>Agregar proyecto</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Escribe el nombre del proyecto (ej. Santa Marcela). Dentro podrás crear sus carpetas.
+            </Typography>
+            <TextField
+              label="Proyecto"
+              placeholder="Ej. Santa Marcela"
+              fullWidth
+              size="small"
+              autoFocus
+              value={nuevoProyecto}
+              onChange={(e) => setNuevoProyecto(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') confirmarNuevoProyecto()
+              }}
+            />
+            {errorNuevoProyecto && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {errorNuevoProyecto}
+              </Alert>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setDialogNuevoProyectoAbierto(false)}>Cancelar</Button>
+            <Button variant="contained" onClick={confirmarNuevoProyecto}>
+              Crear proyecto
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Stack>
+    )
+  }
+
+  if (vista === 'carpetas') {
+    const locaciones = proyectosLocaciones.find((p) => p.proyecto === proyectoActivo)?.locaciones || []
+    return (
+      <Stack spacing={2.5}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <IconButton size="small" onClick={volverAProyectos}>
+            <ArrowBackOutlinedIcon fontSize="small" />
+          </IconButton>
+          <FolderOutlinedIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+          <Typography sx={{ fontWeight: 700, flex: 1, minWidth: 0 }} noWrap>
+            {proyectoActivo}
+          </Typography>
+          <Button size="small" onClick={volverAProyectos}>
+            Cambiar proyecto
+          </Button>
+        </Stack>
+
         {tarjetaPendientes}
 
         <Card>
@@ -379,7 +574,7 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
               Elige una carpeta para reportar
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Cada carpeta es una locación. Al entrar, solo falta llenar proyecto, ID de trabajo y proceso.
+              Cada carpeta es una locación. Al entrar, solo falta llenar ID de trabajo y proceso.
             </Typography>
           </CardContent>
         </Card>
@@ -509,9 +704,14 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
           <ArrowBackOutlinedIcon fontSize="small" />
         </IconButton>
         <FolderOutlinedIcon sx={{ fontSize: 18, color: 'secondary.main' }} />
-        <Typography sx={{ fontWeight: 700, flex: 1, minWidth: 0 }} noWrap>
-          {locacionActiva}
-        </Typography>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 700 }} noWrap>
+            {locacionActiva}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" noWrap>
+            {proyectoActivo}
+          </Typography>
+        </Box>
         <Button size="small" onClick={volverACarpetas} disabled={enviando}>
           Cambiar carpeta
         </Button>
@@ -529,51 +729,6 @@ export default function PantallaReportar({ conectado, onReporteEnviado, pendient
             Datos del reporte
           </Typography>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <Autocomplete
-              freeSolo
-              options={proyectos}
-              value={proyecto}
-              onInputChange={(e, valorNuevo) => setProyecto(valorNuevo)}
-              disabled={enviando}
-              renderOption={(props, option) => {
-                const { key, ...optionProps } = props
-                return (
-                  <Box
-                    key={key}
-                    component="li"
-                    {...optionProps}
-                    sx={{
-                      display: 'flex !important',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {option}
-                    </Box>
-                    <IconButton
-                      size="small"
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                      }}
-                      onClick={(e) => borrarSugerenciaProyecto(option, e)}
-                    >
-                      <CloseIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
-                  </Box>
-                )
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Proyecto"
-                  placeholder="Ej. 26ISP123"
-                  fullWidth
-                  size="small"
-                />
-              )}
-            />
             <Autocomplete
               freeSolo
               options={idsTrabajo}

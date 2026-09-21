@@ -12,7 +12,12 @@ from app.models import (
     ReporteCabecera,
     Usuario,
 )
-from app.schemas import IdTrabajoDetalleOut, InspectorOut, ProcesoOut
+from app.schemas import (
+    IdTrabajoDetalleOut,
+    InspectorOut,
+    ProcesoOut,
+    ProyectoLocacionesOut,
+)
 
 router = APIRouter(prefix="/catalogos", tags=["catalogos"])
 
@@ -187,6 +192,47 @@ def ocultar_locacion(
     if not ya_oculta:
         db.add(LocacionOculta(locacion=locacion))
         db.commit()
+
+
+@router.get("/proyectos-locaciones", response_model=list[ProyectoLocacionesOut])
+def listar_proyectos_locaciones(
+    db: Session = Depends(get_db),
+    usuario_actual: Usuario = Depends(get_current_user),
+):
+    """Para cada proyecto, sus carpetas (locaciones) ya usadas, para agrupar
+    las carpetas por proyecto en la app móvil (Reportar). Más recientes
+    primero, tanto los proyectos como las locaciones dentro de cada uno.
+    """
+    ocultos_proyecto = {fila.nombre for fila in db.query(ProyectoOculto.nombre).all()}
+    ocultos_locacion = {fila.locacion for fila in db.query(LocacionOculta.locacion).all()}
+
+    ultima_fecha_proyecto = func.max(ReporteCabecera.fecha_creacion)
+    proyectos = (
+        db.query(ReporteCabecera.proyecto)
+        .group_by(ReporteCabecera.proyecto)
+        .order_by(ultima_fecha_proyecto.desc())
+        .all()
+    )
+
+    ultima_fecha_locacion = func.max(ReporteCabecera.fecha_creacion)
+    filas_locacion = (
+        db.query(ReporteCabecera.proyecto, ReporteCabecera.locacion)
+        .filter(ReporteCabecera.locacion.isnot(None))
+        .group_by(ReporteCabecera.proyecto, ReporteCabecera.locacion)
+        .order_by(ultima_fecha_locacion.desc())
+        .all()
+    )
+    locaciones_por_proyecto = {}
+    for proyecto, locacion in filas_locacion:
+        if locacion in ocultos_locacion:
+            continue
+        locaciones_por_proyecto.setdefault(proyecto, []).append(locacion)
+
+    return [
+        {"proyecto": proyecto, "locaciones": locaciones_por_proyecto.get(proyecto, [])}
+        for (proyecto,) in proyectos
+        if proyecto not in ocultos_proyecto
+    ]
 
 
 @router.get("/inspectores", response_model=list[InspectorOut])
